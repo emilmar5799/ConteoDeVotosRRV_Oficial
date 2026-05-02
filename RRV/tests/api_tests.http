@@ -1,0 +1,115 @@
+### ============================================
+### Sistema RRV - Pruebas de API
+### Archivo para REST Client (VS Code) o como referencia para curl
+### ============================================
+
+### ─── Health Check ───
+# GET http://localhost:8080/health
+# curl http://localhost:8080/health
+
+### ─── 1. Upload Imagen (OCR simulado) ───
+# Crea un archivo de prueba primero:
+# echo "test-acta-imagen-001" > test_acta.jpg
+#
+# curl -X POST http://localhost:8080/api/rrv/actas/upload \
+#   -F "archivo=@test_acta.jpg"
+
+### ─── 2. Upload PDF (OCR simulado) ───
+# echo "test-acta-pdf-001" > test_acta.pdf
+#
+# curl -X POST http://localhost:8080/api/rrv/actas/upload \
+#   -F "archivo=@test_acta.pdf"
+
+### ─── 3. Upload Duplicado (debe rechazar con 409 Conflict) ───
+# curl -X POST http://localhost:8080/api/rrv/actas/upload \
+#   -F "archivo=@test_acta.jpg"
+# Esperado: 409 Conflict - "Archivo duplicado"
+
+### ─── 4. SMS Válido con 3 Candidatos ───
+# curl -X POST http://localhost:8080/api/rrv/sms \
+#   -H "Content-Type: application/json" \
+#   -d '{
+#     "telefono": "+59170000001",
+#     "mensaje": "ACTA:MESA-00100|DEP:Chuquisaca|MUN:Sucre|REC:U.E. Santa Monica|MESA:100|VAL:515|NUL:10|BLA:5|C1:200|C2:180|C3:130|PIN:1234"
+#   }'
+# Esperado: 201 Created - Acta guardada con 3 candidatos
+
+### ─── 5. SMS Válido con 5 Candidatos (dinámico) ───
+# curl -X POST http://localhost:8080/api/rrv/sms \
+#   -H "Content-Type: application/json" \
+#   -d '{
+#     "telefono": "+59170000002",
+#     "mensaje": "ACTA:MESA-00200|DEP:La Paz|MUN:El Alto|REC:Colegio Ayacucho|MESA:200|VAL:620|NUL:15|BLA:20|C1:150|C2:130|C3:120|C4:110|C5:90|PIN:1234"
+#   }'
+# Esperado: 201 Created - Acta guardada con 5 candidatos
+
+### ─── 6. SMS con PIN Inválido (debe rechazar con 401) ───
+# curl -X POST http://localhost:8080/api/rrv/sms \
+#   -H "Content-Type: application/json" \
+#   -d '{
+#     "telefono": "+59170000001",
+#     "mensaje": "ACTA:MESA-00300|DEP:Cochabamba|MUN:Cochabamba|MESA:300|VAL:100|NUL:5|BLA:3|C1:50|C2:47|PIN:9999"
+#   }'
+# Esperado: 401 Unauthorized - "PIN de verificación inválido"
+
+### ─── 7. SMS con Teléfono No Autorizado (debe rechazar con 403) ───
+# curl -X POST http://localhost:8080/api/rrv/sms \
+#   -H "Content-Type: application/json" \
+#   -d '{
+#     "telefono": "+59199999999",
+#     "mensaje": "ACTA:MESA-00400|DEP:Oruro|MUN:Oruro|MESA:400|VAL:200|NUL:10|BLA:5|C1:100|C2:95|PIN:1234"
+#   }'
+# Esperado: 403 Forbidden - "Teléfono no autorizado"
+
+### ─── 8. SMS Duplicado (debe rechazar con 409) ───
+# Enviar el mismo mensaje del caso 4 otra vez:
+# curl -X POST http://localhost:8080/api/rrv/sms \
+#   -H "Content-Type: application/json" \
+#   -d '{
+#     "telefono": "+59170000001",
+#     "mensaje": "ACTA:MESA-00100|DEP:Chuquisaca|MUN:Sucre|REC:U.E. Santa Monica|MESA:100|VAL:515|NUL:10|BLA:5|C1:200|C2:180|C3:130|PIN:1234"
+#   }'
+# Esperado: 409 Conflict - "SMS duplicado"
+
+### ─── 9. Listar Actas ───
+# curl http://localhost:8080/api/rrv/actas
+# Con filtros:
+# curl "http://localhost:8080/api/rrv/actas?departamento=Chuquisaca"
+# curl "http://localhost:8080/api/rrv/actas?estado=PROCESADA"
+# curl "http://localhost:8080/api/rrv/actas?tipo_entrada=SMS"
+
+### ─── 10. Obtener Acta por ID ───
+# curl http://localhost:8080/api/rrv/actas/MESA-00100
+
+### ─── 11. Listar Eventos (Event Sourcing) ───
+# curl http://localhost:8080/api/rrv/eventos
+
+### ─── 12. Listar SMS Recibidos ───
+# curl http://localhost:8080/api/rrv/sms
+
+### ─── 13. Estadísticas Agregadas ───
+# curl http://localhost:8080/api/rrv/stats
+
+### ============================================
+### Scripts PowerShell para ejecución rápida
+### ============================================
+
+### --- EJECUTAR TODAS LAS PRUEBAS ---
+### Copiar y pegar en PowerShell:
+
+# Health Check
+# Invoke-RestMethod -Uri "http://localhost:8080/health" -Method Get
+
+# SMS con 3 candidatos
+# $body3 = @{ telefono = "+59170000001"; mensaje = "ACTA:MESA-00100|DEP:Chuquisaca|MUN:Sucre|REC:U.E. Santa Monica|MESA:100|VAL:515|NUL:10|BLA:5|C1:200|C2:180|C3:130|PIN:1234" } | ConvertTo-Json
+# Invoke-RestMethod -Uri "http://localhost:8080/api/rrv/sms" -Method Post -Body $body3 -ContentType "application/json"
+
+# SMS con 5 candidatos
+# $body5 = @{ telefono = "+59170000002"; mensaje = "ACTA:MESA-00200|DEP:La Paz|MUN:El Alto|REC:Colegio Ayacucho|MESA:200|VAL:620|NUL:15|BLA:20|C1:150|C2:130|C3:120|C4:110|C5:90|PIN:1234" } | ConvertTo-Json
+# Invoke-RestMethod -Uri "http://localhost:8080/api/rrv/sms" -Method Post -Body $body5 -ContentType "application/json"
+
+# Listar actas
+# Invoke-RestMethod -Uri "http://localhost:8080/api/rrv/actas" -Method Get
+
+# Estadísticas
+# Invoke-RestMethod -Uri "http://localhost:8080/api/rrv/stats" -Method Get
