@@ -3,3 +3,7 @@
 
 # Excluir imágenes PNG
 *.png
+
+# Node.js y Expo
+node_modules/
+.expo/

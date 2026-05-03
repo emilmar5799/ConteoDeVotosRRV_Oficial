@@ -19,36 +19,35 @@ import (
 
 // UploadHandler maneja la subida de imágenes y PDFs para procesamiento OCR.
 type UploadHandler struct {
-	actaRepo   *repository.ActaRepository
-	eventoRepo *repository.EventoRepository
-	ocrService *service.OCRService
+	actaRepo    *repository.ActaRepository
+	eventoRepo  *repository.EventoRepository
+	processor   service.ActaProcessor
 	actaService *service.ActaService
-	uploadDir  string
+	uploadDir   string
 }
 
 // NewUploadHandler crea un nuevo handler de subida de archivos.
 func NewUploadHandler(
 	actaRepo *repository.ActaRepository,
 	eventoRepo *repository.EventoRepository,
-	ocrService *service.OCRService,
+	processor service.ActaProcessor,
 	actaService *service.ActaService,
 	uploadDir string,
 ) *UploadHandler {
-	// Crear directorio de uploads si no existe
 	os.MkdirAll(uploadDir, 0755)
 	return &UploadHandler{
-		actaRepo:   actaRepo,
-		eventoRepo: eventoRepo,
-		ocrService: ocrService,
+		actaRepo:    actaRepo,
+		eventoRepo:  eventoRepo,
+		processor:   processor,
 		actaService: actaService,
-		uploadDir:  uploadDir,
+		uploadDir:   uploadDir,
 	}
 }
 
 // HandleUpload procesa POST /api/rrv/actas/upload
 // Flujo: Recibir archivo → SHA256 → Verificar duplicado → OCR → Validar → Guardar → Registrar eventos
 func (h *UploadHandler) HandleUpload(c *gin.Context) {
-	ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 60*time.Second)
 	defer cancel()
 
 	// 1. Recibir archivo multipart
@@ -65,7 +64,10 @@ func (h *UploadHandler) HandleUpload(c *gin.Context) {
 
 	// Validar extensión
 	ext := filepath.Ext(header.Filename)
-	extensionesValidas := map[string]bool{".jpg": true, ".jpeg": true, ".png": true, ".pdf": true, ".bmp": true, ".tiff": true}
+	extensionesValidas := map[string]bool{
+		".jpg": true, ".jpeg": true, ".png": true,
+		".pdf": true, ".bmp": true, ".tiff": true,
+	}
 	if !extensionesValidas[ext] {
 		c.JSON(http.StatusBadRequest, models.APIResponse{
 			Success: false,
@@ -78,9 +80,7 @@ func (h *UploadHandler) HandleUpload(c *gin.Context) {
 	content, err := io.ReadAll(file)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.APIResponse{
-			Success: false,
-			Message: "Error leyendo archivo",
-			Errors:  []string{err.Error()},
+			Success: false, Message: "Error leyendo archivo", Errors: []string{err.Error()},
 		})
 		return
 	}
@@ -88,77 +88,82 @@ func (h *UploadHandler) HandleUpload(c *gin.Context) {
 	hashBytes := sha256.Sum256(content)
 	fileHash := fmt.Sprintf("%x", hashBytes)
 
-	// 3. Registrar evento: archivo recibido
 	h.registrarEvento(ctx, "PENDIENTE", models.EventoActaRecibida,
 		fmt.Sprintf("Archivo recibido: %s (%d bytes)", header.Filename, len(content)),
 		map[string]any{"filename": header.Filename, "size": len(content), "hash": fileHash},
 	)
 
-	// 4. Verificar duplicado por hash
+	// 3. Verificar duplicado por hash
 	existente, err := h.actaRepo.FindByHash(ctx, fileHash)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.APIResponse{
-			Success: false,
-			Message: "Error verificando duplicados",
-			Errors:  []string{err.Error()},
+			Success: false, Message: "Error verificando duplicados", Errors: []string{err.Error()},
 		})
 		return
 	}
 	if existente != nil {
 		h.registrarEvento(ctx, existente.ActaID, models.EventoDuplicadoDetectado,
-			fmt.Sprintf("Archivo duplicado detectado: hash=%s, acta_id=%s", fileHash, existente.ActaID),
+			fmt.Sprintf("Archivo duplicado detectado: hash=%s", fileHash),
 			map[string]any{"hash": fileHash, "acta_id_existente": existente.ActaID},
 		)
 		c.JSON(http.StatusConflict, models.APIResponse{
 			Success: false,
-			Message: fmt.Sprintf("Archivo duplicado: este contenido ya fue procesado como acta %s", existente.ActaID),
+			Message: fmt.Sprintf("Archivo duplicado: ya fue procesado como acta %s", existente.ActaID),
 			Data:    existente,
 		})
 		return
 	}
 
-	// 5. Guardar archivo temporalmente
+	// 4. Guardar archivo en disco (el pipeline OCR lo necesita)
 	savedPath := filepath.Join(h.uploadDir, fmt.Sprintf("%s%s", fileHash[:16], ext))
 	if err := os.WriteFile(savedPath, content, 0644); err != nil {
 		c.JSON(http.StatusInternalServerError, models.APIResponse{
-			Success: false,
-			Message: "Error guardando archivo temporal",
-			Errors:  []string{err.Error()},
+			Success: false, Message: "Error guardando archivo temporal", Errors: []string{err.Error()},
 		})
 		return
 	}
 
-	// 6. Procesar OCR (simulado)
-	acta := h.ocrService.ProcesarArchivo(fileHash, header.Filename)
-	acta.FechaRecepcion = time.Now()
+	// 5. Ejecutar pipeline OCR real (Tesseract + parser + validador visual)
+	acta, err := h.processor.ProcesarArchivo(savedPath, header.Filename)
+	if err != nil {
+		h.registrarEvento(ctx, "ERROR_OCR", models.EventoOCRProcesado,
+			fmt.Sprintf("Error OCR: %v", err),
+			map[string]any{"filename": header.Filename, "error": err.Error()},
+		)
+		c.JSON(http.StatusUnprocessableEntity, models.APIResponse{
+			Success: false,
+			Message: "Error procesando OCR del archivo",
+			Errors:  []string{err.Error()},
+		})
+		return
+	}
+	acta.HashOrigen = fileHash
 
 	h.registrarEvento(ctx, acta.ActaID, models.EventoOCRProcesado,
-		fmt.Sprintf("OCR procesado: acta_id=%s, %d candidatos detectados", acta.ActaID, len(acta.Candidatos)),
+		fmt.Sprintf("OCR completado: acta_id=%s, %d candidatos", acta.ActaID, len(acta.Candidatos)),
 		map[string]any{"acta_id": acta.ActaID, "candidatos": len(acta.Candidatos)},
 	)
 
-	// 7. Validar datos del acta
+	// 6. Validar datos del acta
 	erroresValidacion := h.actaService.ValidarActa(acta)
 	acta.Estado = h.actaService.DeterminarEstado(acta, erroresValidacion)
 	acta.Errores = erroresValidacion
 
 	if len(erroresValidacion) > 0 {
 		h.registrarEvento(ctx, acta.ActaID, models.EventoValidacionError,
-			fmt.Sprintf("Validación con errores: %d problemas encontrados", len(erroresValidacion)),
+			fmt.Sprintf("Validación con %d errores", len(erroresValidacion)),
 			map[string]any{"errores": erroresValidacion},
 		)
 	} else {
 		h.registrarEvento(ctx, acta.ActaID, models.EventoValidacionOK,
-			"Validación exitosa: todos los campos correctos",
-			nil,
+			"Validación exitosa", nil,
 		)
 	}
 
-	// 8. Verificar duplicado por acta_id
-	existentePorID, _ := h.actaRepo.FindByActaID(ctx, acta.ActaID)
-	if existentePorID != nil {
+	// 7. Verificar duplicado por acta_id
+	if existentePorID, _ := h.actaRepo.FindByActaID(ctx, acta.ActaID); existentePorID != nil {
 		h.registrarEvento(ctx, acta.ActaID, models.EventoDuplicadoDetectado,
-			fmt.Sprintf("Acta duplicada por ID: acta_id=%s", acta.ActaID),
+			fmt.Sprintf("Acta duplicada por ID: %s", acta.ActaID),
 			map[string]any{"acta_id": acta.ActaID},
 		)
 		c.JSON(http.StatusConflict, models.APIResponse{
@@ -169,29 +174,28 @@ func (h *UploadHandler) HandleUpload(c *gin.Context) {
 		return
 	}
 
-	// 9. Guardar acta en MongoDB
+	// 8. Guardar acta en MongoDB
 	if err := h.actaRepo.InsertActa(ctx, acta); err != nil {
 		c.JSON(http.StatusInternalServerError, models.APIResponse{
-			Success: false,
-			Message: "Error guardando acta en base de datos",
-			Errors:  []string{err.Error()},
+			Success: false, Message: "Error guardando acta en base de datos", Errors: []string{err.Error()},
 		})
 		return
 	}
 
 	h.registrarEvento(ctx, acta.ActaID, models.EventoActaGuardada,
-		fmt.Sprintf("Acta guardada exitosamente: estado=%s", acta.Estado),
+		fmt.Sprintf("Acta guardada: estado=%s", acta.Estado),
 		map[string]any{"estado": acta.Estado},
 	)
 
-	// 10. Respuesta exitosa
-	statusCode := http.StatusCreated
-	message := fmt.Sprintf("Acta %s procesada y guardada exitosamente", acta.ActaID)
+	// 9. Respuesta
+	message := fmt.Sprintf("Acta %s procesada exitosamente", acta.ActaID)
 	if acta.Estado == models.EstadoError {
 		message = fmt.Sprintf("Acta %s guardada con errores de validación", acta.ActaID)
+	} else if acta.Estado == models.EstadoAnulada {
+		message = fmt.Sprintf("Acta %s procesada — ANULADA: %s", acta.ActaID, acta.MotivoEstado)
 	}
 
-	c.JSON(statusCode, models.APIResponse{
+	c.JSON(http.StatusCreated, models.APIResponse{
 		Success: true,
 		Message: message,
 		Data:    acta,
@@ -199,7 +203,6 @@ func (h *UploadHandler) HandleUpload(c *gin.Context) {
 	})
 }
 
-// registrarEvento es un helper para registrar eventos del pipeline.
 func (h *UploadHandler) registrarEvento(ctx context.Context, actaID, tipoEvento, descripcion string, metadata map[string]any) {
 	evento := &models.EventoRRV{
 		ActaID:      actaID,
@@ -208,6 +211,5 @@ func (h *UploadHandler) registrarEvento(ctx context.Context, actaID, tipoEvento,
 		Metadata:    metadata,
 		Fecha:       time.Now(),
 	}
-	// Registro fire-and-forget — no debe bloquear el flujo principal
 	_ = h.eventoRepo.InsertEvento(ctx, evento)
 }

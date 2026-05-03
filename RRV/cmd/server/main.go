@@ -64,8 +64,19 @@ func main() {
 
 	// 4. Inicializar servicios
 	actaService := service.NewActaService()
-	ocrService := service.NewOCRService()
 	smsService := service.NewSMSService(cfg.PinValido, cfg.TelefonosAutorizados)
+
+	// Pipeline OCR real (Tesseract + mutool). Si no están instalados, usa el mock.
+	var processor service.ActaProcessor
+	pipeline, pipelineErr := service.NewOCRPipeline("", "")
+	if pipelineErr != nil {
+		log.Printf("[WARN] Pipeline OCR real no disponible (%v) — usando mock", pipelineErr)
+		processor = service.NewMockPipeline()
+	} else {
+		log.Println("[OK] Pipeline OCR real inicializado (Tesseract + mutool)")
+		processor = pipeline
+	}
+
 	log.Println("[OK] Servicios de negocio inicializados")
 
 	// 5. Directorio de uploads
@@ -74,7 +85,7 @@ func main() {
 	os.MkdirAll(uploadDir, 0755)
 
 	// 6. Inicializar handlers
-	uploadHandler := handlers.NewUploadHandler(actaRepo, eventoRepo, ocrService, actaService, uploadDir)
+	uploadHandler := handlers.NewUploadHandler(actaRepo, eventoRepo, processor, actaService, uploadDir)
 	smsHandler := handlers.NewSMSHandler(actaRepo, eventoRepo, smsRepo, smsService, actaService)
 	queryHandler := handlers.NewQueryHandler(actaRepo, eventoRepo, smsRepo)
 	log.Println("[OK] Handlers HTTP inicializados")
