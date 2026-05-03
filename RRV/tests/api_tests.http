@@ -1,0 +1,249 @@
+### ============================================
+### Sistema RRV - Pruebas de API Completas
+### REST Client (VS Code extension: "REST Client")
+### ============================================
+@baseUrl = http://localhost:8080
+
+# ─────────────────────────────────────────────
+# HEALTH CHECK
+# ─────────────────────────────────────────────
+### Health check
+GET {{baseUrl}}/health
+
+###
+
+# ─────────────────────────────────────────────
+# COMMAND — INGESTA DE ACTAS POR IMAGEN/PDF
+# ─────────────────────────────────────────────
+### Subir imagen de acta (OCR simulado)
+POST {{baseUrl}}/api/rrv/actas/upload
+Content-Type: multipart/form-data; boundary=----Boundary
+
+------Boundary
+Content-Disposition: form-data; name="archivo"; filename="acta_test.jpg"
+Content-Type: image/jpeg
+
+test-acta-imagen-001
+------Boundary--
+
+###
+
+# ─────────────────────────────────────────────
+# COMMAND — SMS
+# ─────────────────────────────────────────────
+### SMS válido — 4 candidatos
+POST {{baseUrl}}/api/rrv/sms
+Content-Type: application/json
+
+{
+  "telefono": "+59170000001",
+  "mensaje": "ACTA:MESA-00100|DEP:Chuquisaca|MUN:Sucre|REC:U.E. Santa Monica|MESA:100|VAL:515|NUL:10|BLA:5|C1:200|C2:180|C3:130|C4:5|PIN:1234"
+}
+
+###
+
+### SMS válido — La Paz
+POST {{baseUrl}}/api/rrv/sms
+Content-Type: application/json
+
+{
+  "telefono": "+59170000001",
+  "mensaje": "ACTA:MESA-00200|DEP:La Paz|MUN:El Alto|REC:Colegio Ayacucho|MESA:200|VAL:620|NUL:15|BLA:20|C1:150|C2:130|C3:120|C4:220|PIN:1234"
+}
+
+###
+
+### SMS — PIN inválido (espera 401)
+POST {{baseUrl}}/api/rrv/sms
+Content-Type: application/json
+
+{
+  "telefono": "+59170000001",
+  "mensaje": "ACTA:MESA-00300|DEP:Cochabamba|MUN:Cochabamba|MESA:300|VAL:100|NUL:5|BLA:3|C1:50|C2:47|PIN:9999"
+}
+
+###
+
+### SMS — teléfono no autorizado (espera 403)
+POST {{baseUrl}}/api/rrv/sms
+Content-Type: application/json
+
+{
+  "telefono": "+59199999999",
+  "mensaje": "ACTA:MESA-00400|DEP:Oruro|MUN:Oruro|MESA:400|VAL:200|NUL:10|BLA:5|C1:100|C2:95|PIN:1234"
+}
+
+###
+
+### SMS duplicado — mismo mensaje que el primero (espera 409)
+POST {{baseUrl}}/api/rrv/sms
+Content-Type: application/json
+
+{
+  "telefono": "+59170000001",
+  "mensaje": "ACTA:MESA-00100|DEP:Chuquisaca|MUN:Sucre|REC:U.E. Santa Monica|MESA:100|VAL:515|NUL:10|BLA:5|C1:200|C2:180|C3:130|C4:5|PIN:1234"
+}
+
+###
+
+# ─────────────────────────────────────────────
+# QUERY — LISTADOS BÁSICOS (CQRS READ SIDE)
+# ─────────────────────────────────────────────
+### Listar todas las actas
+GET {{baseUrl}}/api/rrv/actas
+
+###
+
+### Filtrar actas por departamento
+GET {{baseUrl}}/api/rrv/actas?departamento=Chuquisaca
+
+###
+
+### Filtrar por estado
+GET {{baseUrl}}/api/rrv/actas?estado=PROCESADA
+
+###
+
+### Filtrar por tipo de entrada SMS
+GET {{baseUrl}}/api/rrv/actas?tipo_entrada=SMS
+
+###
+
+### Obtener acta específica por ID
+GET {{baseUrl}}/api/rrv/actas/MESA-00100
+
+###
+
+### Listar eventos (Event Sourcing)
+GET {{baseUrl}}/api/rrv/eventos
+
+###
+
+### Replay de un acta — reconstruye historial completo
+GET {{baseUrl}}/api/rrv/eventos/replay/MESA-00100
+
+###
+
+### Listar SMS recibidos
+GET {{baseUrl}}/api/rrv/sms
+
+###
+
+### Listar inconsistencias detectadas
+GET {{baseUrl}}/api/rrv/inconsistencias
+
+###
+
+### Estadísticas básicas (calculadas en tiempo real)
+GET {{baseUrl}}/api/rrv/stats
+
+###
+
+### Estadísticas CQRS completas — vista materializada Estadisticas_RRV
+GET {{baseUrl}}/api/rrv/stats/full
+
+###
+
+### Datos de referencia (totales del CSV)
+GET {{baseUrl}}/api/rrv/referencia/totales
+
+###
+
+# ─────────────────────────────────────────────
+# BANCO DE CONSULTAS — DASHBOARD ANALÍTICO
+# ─────────────────────────────────────────────
+
+### Q1 — Mesas por recinto y departamento
+GET {{baseUrl}}/api/rrv/consultas/mesas-por-recinto
+
+###
+
+### Q2 — Registro de votos por municipio
+GET {{baseUrl}}/api/rrv/consultas/votos-por-municipio
+
+###
+
+### Q3 — Votos totales por departamento
+GET {{baseUrl}}/api/rrv/consultas/votos-por-departamento
+
+###
+
+### Q4 — Top 5 recintos con más votos para P1 (Daenerys Targaryen)
+GET {{baseUrl}}/api/rrv/consultas/top-recintos?candidato=P1&limite=5
+
+###
+
+### Q4 — Top 5 para P2 (Sansa Stark)
+GET {{baseUrl}}/api/rrv/consultas/top-recintos?candidato=P2&limite=5
+
+###
+
+### Q5 — Votos nulos por departamento y % vs válidos
+GET {{baseUrl}}/api/rrv/consultas/nulos-por-departamento
+
+###
+
+### Q6 — Boletas anuladas en el TREP
+GET {{baseUrl}}/api/rrv/consultas/boletas-anuladas
+
+###
+
+### Q7-Q8 — TREP vs Cómputo Oficial (totales y por candidato)
+GET {{baseUrl}}/api/rrv/consultas/trep-vs-oficial
+
+###
+
+### Q11 — Mesas con más del 20% de abstención
+GET {{baseUrl}}/api/rrv/consultas/mesas-abstencion?umbral=20
+
+###
+
+### Q11 — Mesas con más del 30% de abstención
+GET {{baseUrl}}/api/rrv/consultas/mesas-abstencion?umbral=30
+
+###
+
+### Q12 — Actas recibidas en el centro de cómputo por hora
+GET {{baseUrl}}/api/rrv/consultas/actas-por-hora
+
+###
+
+### Q14 — Tiempo entre primera y última acta por departamento
+GET {{baseUrl}}/api/rrv/consultas/tiempo-actas-departamento
+
+###
+
+### Q16 — Porcentaje de participación ciudadana por departamento
+GET {{baseUrl}}/api/rrv/consultas/participacion-departamento
+
+###
+
+### Q17 — Inconsistencias TREP vs Oficial por departamento
+GET {{baseUrl}}/api/rrv/consultas/inconsistencias-trep-oficial
+
+###
+
+### Q19 — Resultados por departamento
+GET {{baseUrl}}/api/rrv/consultas/resultados-geograficos?departamento=Chuquisaca
+
+###
+
+### Q19 — Resultados por municipio
+GET {{baseUrl}}/api/rrv/consultas/resultados-geograficos?municipio=Sucre
+
+###
+
+### Q19 — Resultados por provincia
+GET {{baseUrl}}/api/rrv/consultas/resultados-geograficos?provincia=Oropeza
+
+###
+
+### Q19 — Resultados globales (sin filtro)
+GET {{baseUrl}}/api/rrv/consultas/resultados-geograficos
+
+###
+
+### Q20 — Error más común en verificación de actas
+GET {{baseUrl}}/api/rrv/consultas/errores-comunes
+
+###
