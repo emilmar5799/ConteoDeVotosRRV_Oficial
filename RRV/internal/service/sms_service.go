@@ -202,7 +202,7 @@ func (s *SMSService) ParseSMS(mensaje string) (*SMSParseResult, []string) {
 
 // ConvertirAActa convierte el resultado del parsing SMS a un ActaRRV.
 func (s *SMSService) ConvertirAActa(parsed *SMSParseResult, hashMensaje string) *models.ActaRRV {
-	totalVotos := parsed.VotosValidos + parsed.VotosNulos
+	totalVotos := parsed.VotosValidos + parsed.VotosNulos + parsed.VotosBlancos
 
 	return &models.ActaRRV{
 		ActaID:       parsed.ActaID,

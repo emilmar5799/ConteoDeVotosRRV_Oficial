@@ -19,7 +19,7 @@ type SMSRepository struct {
 
 // NewSMSRepository crea un nuevo repositorio de SMS con índices.
 func NewSMSRepository(db *mongo.Database) *SMSRepository {
-	coll := db.Collection("sms_rrv")
+	coll := db.Collection("SMS_Recibidos")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

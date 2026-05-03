@@ -9,15 +9,27 @@ type Config struct {
 	Port                 string
 	PinValido            string
 	TelefonosAutorizados []string
+
+	// Twilio SMS Gateway
+	TwilioAccountSID  string
+	TwilioAuthToken   string
+	TwilioPhoneNumber string
+	TwilioWebhookURL  string // URL pública del webhook (para validación de firma)
 }
 
 // LoadConfig carga la configuración desde variables de entorno con defaults seguros.
 func LoadConfig() *Config {
 	cfg := &Config{
 		MongoURI:  getEnv("MONGO_URI", "mongodb://localhost:27017"),
-		MongoDB:   getEnv("MONGO_DB", "rrv_electoral"),
+		MongoDB:   getEnv("MONGO_DB", "electoral_rrv"),
 		Port:      getEnv("PORT", "8080"),
 		PinValido: getEnv("PIN_VALIDO", "1234"),
+
+		// Twilio
+		TwilioAccountSID:  getEnv("TWILIO_ACCOUNT_SID", ""),
+		TwilioAuthToken:   getEnv("TWILIO_AUTH_TOKEN", ""),
+		TwilioPhoneNumber: getEnv("TWILIO_PHONE_NUMBER", ""),
+		TwilioWebhookURL:  getEnv("TWILIO_WEBHOOK_URL", ""),
 	}
 
 	// Teléfonos autorizados separados por coma

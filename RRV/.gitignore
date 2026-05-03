@@ -1,0 +1,5 @@
+# Excluir documentos PDF
+*.pdf
+
+# Excluir imágenes PNG
+*.png
