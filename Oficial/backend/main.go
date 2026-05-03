@@ -48,8 +48,9 @@ func main() {
 			return c.Status(400).JSON(fiber.Map{"error": "Invalid request"})
 		}
 
+		db := GetDB()
 		var user Usuario
-		result := DB.Where("nombre = ?", req.Nombre).First(&user)
+		result := db.Where("nombre = ?", req.Nombre).First(&user)
 		if result.Error != nil {
 			return c.Status(404).JSON(fiber.Map{"error": "Usuario no encontrado"})
 		}
@@ -65,13 +66,14 @@ func main() {
 		recinto := c.Query("codigo_recinto")
 		mesaNum := c.Query("nro_mesa")
 
+		db := GetDB()
 		var mesa Mesa
 		var result *gorm.DB
 
 		if codigoActa != "" {
-			result = DB.Preload("Recinto").Preload("Recinto.Territorio").Where("codigo_acta = ?", codigoActa).First(&mesa)
+			result = db.Preload("Recinto").Preload("Recinto.Territorio").Where("codigo_acta = ?", codigoActa).First(&mesa)
 		} else if recinto != "" && mesaNum != "" {
-			result = DB.Preload("Recinto").Preload("Recinto.Territorio").Where("codigo_recinto = ? AND nro_mesa = ?", recinto, mesaNum).First(&mesa)
+			result = db.Preload("Recinto").Preload("Recinto.Territorio").Where("codigo_recinto = ? AND nro_mesa = ?", recinto, mesaNum).First(&mesa)
 		} else {
 			return c.Status(400).JSON(fiber.Map{"error": "Debe proporcionar codigo_acta o bien codigo_recinto y nro_mesa"})
 		}
@@ -80,9 +82,9 @@ func main() {
 			return c.Status(404).JSON(fiber.Map{"error": "Acta no encontrada"})
 		}
 
-		// Check if already transcribed
+		// Verificar si ya fue transcrita
 		var count int64
-		DB.Model(&Papeleta{}).Where("codigo_acta = ?", mesa.CodigoActa).Count(&count)
+		db.Model(&Papeleta{}).Where("codigo_acta = ?", mesa.CodigoActa).Count(&count)
 		if count > 0 {
 			return c.Status(400).JSON(fiber.Map{"error": "El acta ya fue transcrita"})
 		}
@@ -101,46 +103,48 @@ func main() {
 			return c.Status(400).JSON(fiber.Map{"error": "Invalid request format"})
 		}
 
-		// Validation 1: Check if Acta exists
+		db := GetDB()
+
+		// Validación 1: El acta existe
 		var mesa Mesa
-		if err := DB.Where("codigo_acta = ?", req.CodigoActa).First(&mesa).Error; err != nil {
+		if err := db.Where("codigo_acta = ?", req.CodigoActa).First(&mesa).Error; err != nil {
 			return c.Status(404).JSON(fiber.Map{"error": "Acta no encontrada"})
 		}
 
-		// Validation 2: Votos Válidos = P1 + P2 + P3 + P4
+		// Validación 2: Votos Válidos = P1 + P2 + P3 + P4
 		sumPartidos := req.P1 + req.P2 + req.P3 + req.P4
 		if sumPartidos != req.VotosValidos {
 			return c.Status(400).JSON(fiber.Map{"error": "La suma de votos por partido no coincide con los votos válidos"})
 		}
 
-		// Validation 3: Papeletas en Ánfora = Válidos + Blancos + Nulos
+		// Validación 3: Papeletas en Ánfora = Válidos + Blancos + Nulos
 		sumAnfora := req.VotosValidos + req.VotosBlancos + req.VotosNulos
 		if sumAnfora != req.PapeletasAnfora {
 			return c.Status(400).JSON(fiber.Map{"error": "Los votos válidos, blancos y nulos no coinciden con las papeletas en ánfora"})
 		}
 
-		// Validation 4: Total (Anfora + No Utilizadas) debe ser igual a habilitados (con cierta tolerancia, pero lo exigimos exacto según usuario)
+		// Validación 4: Ánfora + No Utilizadas = Votantes Habilitados
 		totalPapeletas := req.PapeletasAnfora + req.PapeltasNoUtilizadas
 		if totalPapeletas != mesa.VotantesHabilitados {
 			return c.Status(400).JSON(fiber.Map{"error": "Las papeletas en ánfora más las no utilizadas no coinciden con los votantes habilitados"})
 		}
 
-		// Start transaction
-		tx := DB.Begin()
+		// Transacción
+		tx := db.Begin()
 
 		papeleta := Papeleta{
-			CodigoActa:          req.CodigoActa,
-			VotosValidos:        req.VotosValidos,
-			VotosBlancos:        req.VotosBlancos,
-			VotosNulos:          req.VotosNulos,
-			PapeletasAnfora:     req.PapeletasAnfora,
+			CodigoActa:           req.CodigoActa,
+			VotosValidos:         req.VotosValidos,
+			VotosBlancos:         req.VotosBlancos,
+			VotosNulos:           req.VotosNulos,
+			PapeletasAnfora:      req.PapeletasAnfora,
 			PapeltasNoUtilizadas: req.PapeltasNoUtilizadas,
-			AperturaHora:        req.AperturaHora,
-			AperturaMinutos:     req.AperturaMinutos,
-			CierreHora:          req.CierreHora,
-			CierreMinutos:       req.CierreMinutos,
-			Observaciones:       req.Observaciones,
-			IdUsuario:           req.IdUsuario,
+			AperturaHora:         req.AperturaHora,
+			AperturaMinutos:      req.AperturaMinutos,
+			CierreHora:           req.CierreHora,
+			CierreMinutos:        req.CierreMinutos,
+			Observaciones:        req.Observaciones,
+			IdUsuario:            req.IdUsuario,
 		}
 
 		if err := tx.Create(&papeleta).Error; err != nil {
@@ -148,7 +152,6 @@ func main() {
 			return c.Status(500).JSON(fiber.Map{"error": "Error al guardar papeleta, posiblemente ya transcrita"})
 		}
 
-		// Insert Detalle
 		detalles := []DetalleVotosPartido{
 			{IdPapeleta: papeleta.IdPapeleta, IdPartido: 1, CantidadVotos: req.P1},
 			{IdPapeleta: papeleta.IdPapeleta, IdPartido: 2, CantidadVotos: req.P2},
@@ -162,8 +165,29 @@ func main() {
 		}
 
 		tx.Commit()
-
 		return c.JSON(fiber.Map{"message": "Transcripción guardada exitosamente"})
+	})
+
+	// ─── ENDPOINT DEMO: truncar transcripciones para reset del demo visual ───
+	// DELETE /api/transcripciones  →  borra todos los registros de papeletas y detalles
+	api.Delete("/transcripciones", func(c *fiber.Ctx) error {
+		db := GetDB()
+		tx := db.Begin()
+
+		// Borrar detalles primero (FK → papeletas)
+		if err := tx.Where("1 = 1").Delete(&DetalleVotosPartido{}).Error; err != nil {
+			tx.Rollback()
+			return c.Status(500).JSON(fiber.Map{"error": "Error al limpiar detalle_votos_partido: " + err.Error()})
+		}
+		// Borrar papeletas
+		if err := tx.Where("1 = 1").Delete(&Papeleta{}).Error; err != nil {
+			tx.Rollback()
+			return c.Status(500).JSON(fiber.Map{"error": "Error al limpiar papeletas: " + err.Error()})
+		}
+
+		tx.Commit()
+		log.Println("🗑️  Transcripciones truncadas vía endpoint demo")
+		return c.JSON(fiber.Map{"message": "Todas las transcripciones fueron eliminadas correctamente"})
 	})
 
 	log.Fatal(app.Listen(":8080"))

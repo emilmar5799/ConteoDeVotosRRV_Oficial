@@ -4,23 +4,24 @@
 //  un navegador real que puedes ver en pantalla.
 //
 //  Uso:
-//    node fill-visual.js             → procesa todos los registros
-//    node fill-visual.js --limit 20  → procesa solo los primeros 20
+//    node fill-visual.js             → TRUNCA y procesa TODOS los registros
+//    node fill-visual.js --limit 20  → TRUNCA y procesa solo los primeros 20
 // ============================================================
 
 const puppeteer = require('puppeteer');
 const fs = require('fs');
 const { parse } = require('csv-parse/sync');
 
-const CSV_PATH    = '../_Recursos Practica 4 - Transcripciones.csv';
-const FRONTEND    = 'http://localhost:3000';
+const CSV_PATH = '../_Recursos Practica 4 - Transcripciones.csv';
+const FRONTEND = 'http://localhost:3000';
+const API_BASE = 'http://localhost:8080/api';
 const FUNCIONARIO = 'Funcionario 1';
 
 // Velocidad visual (ms entre teclas). Sube para que se vea mejor.
-const SLOWMO = 20;
+const SLOWMO = 5;
 
 // Pausa entre actas (ms)
-const PAUSA_ENTRE_ACTAS = 800;
+const PAUSA_ENTRE_ACTAS = 500;
 
 // ─── Argumentos ────────────────────────────────────────────
 const args = process.argv.slice(2);
@@ -32,18 +33,14 @@ if (limitIdx !== -1 && args[limitIdx + 1]) {
 
 // ─── Helpers ───────────────────────────────────────────────
 // Limpiar y escribir en un input de React de forma confiable.
-// Usa el setter nativo del DOM para que React detecte el cambio,
-// luego dispara los eventos correctos.
 async function setField(page, selector, value) {
   await page.$eval(selector, (el, val) => {
-    // Setter nativo de React (bypasa el wrapper de React)
     const nativeInputSetter = Object.getOwnPropertyDescriptor(
       window.HTMLInputElement.prototype,
       'value'
     ).set;
     nativeInputSetter.call(el, val);
-    // Disparar eventos para que React actualice su estado
-    el.dispatchEvent(new Event('input',  { bubbles: true }));
+    el.dispatchEvent(new Event('input', { bubbles: true }));
     el.dispatchEvent(new Event('change', { bubbles: true }));
   }, String(value));
 }
@@ -56,7 +53,7 @@ async function setTextarea(page, selector, value) {
       'value'
     ).set;
     nativeSetter.call(el, val);
-    el.dispatchEvent(new Event('input',  { bubbles: true }));
+    el.dispatchEvent(new Event('input', { bubbles: true }));
     el.dispatchEvent(new Event('change', { bubbles: true }));
   }, String(value));
 }
@@ -65,13 +62,28 @@ function sleep(ms) {
   return new Promise(r => setTimeout(r, ms));
 }
 
+// ─── Truncar transcripciones existentes via API ────────────
+async function truncarTranscripciones() {
+  console.log('🗑️  Truncando transcripciones existentes...');
+  const res = await fetch(`${API_BASE}/transcripciones`, { method: 'DELETE' });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Error al truncar: HTTP ${res.status} — ${body}`);
+  }
+  const data = await res.json();
+  console.log(`✅  ${data.message}\n`);
+}
+
 // ─── Main ──────────────────────────────────────────────────
 async function run() {
   console.log('╔══════════════════════════════════════════════════╗');
   console.log('║   DEMO VISUAL – Transcripción Automática de Actas ║');
-  console.log('╚══════════════════════════════════════════════════╝');
+  console.log('╚══════════════════════════════════════════════════╝\n');
 
-  // Leer CSV
+  // PASO 1: Truncar datos previos via API (sin abrir navegador)
+  await truncarTranscripciones();
+
+  // PASO 2: Leer CSV
   const rawCsv = fs.readFileSync(CSV_PATH, 'utf-8');
   const rows = parse(rawCsv, {
     columns: true,
@@ -81,9 +93,9 @@ async function run() {
   }).filter(r => r.CodigoActa);
 
   const total = Math.min(rows.length, limit);
-  console.log(`📄 Total de registros a procesar: ${total}\n`);
+  console.log(`📄 Total de registros a procesar: ${total}${limit !== Infinity ? ` (limitado a ${limit})` : ' (todos)'}\n`);
 
-  // Lanzar navegador VISIBLE
+  // PASO 3: Lanzar navegador VISIBLE
   const browser = await puppeteer.launch({
     headless: false,
     slowMo: SLOWMO,
@@ -105,60 +117,60 @@ async function run() {
 
   let exitosos = 0;
   let omitidos = 0;
-  let errores  = 0;
+  let errores = 0;
 
   for (let i = 0; i < total; i++) {
     const row = rows[i];
-    const codigoActa    = row.CodigoActa    || '';
+    const codigoActa = row.CodigoActa || '';
     const codigoRecinto = row.CodigoRecinto || '';
-    const nroMesa       = row.NroMesa       || '';
+    const nroMesa = row.NroMesa || '';
 
     console.log(`[${i + 1}/${total}] 📋 Acta: ${codigoActa} | Recinto: ${codigoRecinto} | Mesa: ${nroMesa}`);
 
     // ── Datos del Acta ──────────────────────────────────
-    await setField(page, 'input[name="codigoActa"]',    codigoActa);
-    await sleep(100);
+    await setField(page, 'input[name="codigoActa"]', codigoActa);
+    await sleep(30);
     await setField(page, 'input[name="codigoRecinto"]', codigoRecinto);
-    await sleep(100);
-    await setField(page, 'input[name="nroMesa"]',       nroMesa);
-    await sleep(100);
+    await sleep(30);
+    await setField(page, 'input[name="nroMesa"]', nroMesa);
+    await sleep(30);
 
     // ── Votos por Partido ───────────────────────────────
-    await setField(page, 'input[name="p1"]',          row.P1           || '0');
-    await sleep(60);
-    await setField(page, 'input[name="p2"]',          row.P2           || '0');
-    await sleep(60);
-    await setField(page, 'input[name="p3"]',          row.P3           || '0');
-    await sleep(60);
-    await setField(page, 'input[name="p4"]',          row.P4           || '0');
-    await sleep(60);
-    await setField(page, 'input[name="votosValidos"]',row.VotosValidos || '0');
-    await sleep(60);
+    await setField(page, 'input[name="p1"]', row.P1 || '0');
+    await sleep(20);
+    await setField(page, 'input[name="p2"]', row.P2 || '0');
+    await sleep(20);
+    await setField(page, 'input[name="p3"]', row.P3 || '0');
+    await sleep(20);
+    await setField(page, 'input[name="p4"]', row.P4 || '0');
+    await sleep(20);
+    await setField(page, 'input[name="votosValidos"]', row.VotosValidos || '0');
+    await sleep(20);
 
     // ── Otros Votos ─────────────────────────────────────
-    await setField(page, 'input[name="blancos"]',      row.VotosBlancos         || '0');
-    await sleep(60);
-    await setField(page, 'input[name="nulos"]',        row.VotosNulos           || '0');
-    await sleep(60);
-    await setField(page, 'input[name="anfora"]',       row.PapeletasAnfora      || '0');
-    await sleep(60);
+    await setField(page, 'input[name="blancos"]', row.VotosBlancos || '0');
+    await sleep(20);
+    await setField(page, 'input[name="nulos"]', row.VotosNulos || '0');
+    await sleep(20);
+    await setField(page, 'input[name="anfora"]', row.PapeletasAnfora || '0');
+    await sleep(20);
     await setField(page, 'input[name="noUtilizadas"]', row.PapeltasNoUtilizadas || '0');
-    await sleep(60);
+    await sleep(20);
 
     // ── Horarios ────────────────────────────────────────
-    await setField(page, 'input[name="aperturaHora"]',    row.AperturaHora    || '8');
-    await sleep(50);
+    await setField(page, 'input[name="aperturaHora"]', row.AperturaHora || '8');
+    await sleep(20);
     await setField(page, 'input[name="aperturaMinutos"]', row.AperturaMinutos || '0');
-    await sleep(50);
-    await setField(page, 'input[name="cierreHora"]',      row.CierreHora      || '16');
-    await sleep(50);
-    await setField(page, 'input[name="cierreMinutos"]',   row.CierreMinutos   || '0');
-    await sleep(50);
+    await sleep(20);
+    await setField(page, 'input[name="cierreHora"]', row.CierreHora || '16');
+    await sleep(20);
+    await setField(page, 'input[name="cierreMinutos"]', row.CierreMinutos || '0');
+    await sleep(20);
 
     // ── Observaciones ───────────────────────────────────
     const obs = (row.Observaciones || '').trim();
     await setTextarea(page, 'textarea[name="observaciones"]', obs);
-    await sleep(100);
+    await sleep(50);
 
     // ── Enviar ──────────────────────────────────────────
     const submitBtn = await page.$('button[type="submit"]');
@@ -195,7 +207,7 @@ async function run() {
           }
         }
       } catch {
-        // Timeout esperando el alert — revisar si hay algún error visible
+        // Timeout esperando el alert
         const submitErrEl = await page.$('.alert-error span');
         if (submitErrEl) {
           const msg = await page.evaluate(el => el.textContent, submitErrEl);
