@@ -3,35 +3,124 @@
   "nodes": [
     {
       "parameters": {},
-      "id": "1",
-      "name": "Start",
-      "type": "n8n-nodes-base.start",
+      "id": "node-trigger",
+      "name": "Inicio Manual",
+      "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
-      "position": [
-        250,
-        300
-      ]
+      "position": [240, 300]
     },
     {
       "parameters": {
-        "command": "node /app/fill-forms.js"
+        "command": "node /app/fill-forms.js 2>&1"
       },
-      "id": "2",
-      "name": "Ejecutar Puppeteer Script",
+      "id": "node-exec",
+      "name": "Ejecutar Transcripción CSV → API",
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
-      "position": [
-        450,
-        300
-      ]
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{$json[\"exitCode\"]}}",
+              "operation": "equal",
+              "value2": 0
+            }
+          ]
+        }
+      },
+      "id": "node-if",
+      "name": "¿Éxito?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [700, 300]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "resultado",
+              "value": "✅ Automatización completada con éxito"
+            },
+            {
+              "name": "salida",
+              "value": "={{$node[\"Ejecutar Transcripción CSV → API\"].json[\"stdout\"]}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-ok",
+      "name": "Resultado Exitoso",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [940, 220]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "resultado",
+              "value": "❌ Error en la automatización"
+            },
+            {
+              "name": "error",
+              "value": "={{$node[\"Ejecutar Transcripción CSV → API\"].json[\"stderr\"]}}"
+            },
+            {
+              "name": "salida",
+              "value": "={{$node[\"Ejecutar Transcripción CSV → API\"].json[\"stdout\"]}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-error",
+      "name": "Resultado con Error",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [940, 400]
     }
   ],
   "connections": {
-    "Start": {
+    "Inicio Manual": {
       "main": [
         [
           {
-            "node": "Ejecutar Puppeteer Script",
+            "node": "Ejecutar Transcripción CSV → API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ejecutar Transcripción CSV → API": {
+      "main": [
+        [
+          {
+            "node": "¿Éxito?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Éxito?": {
+      "main": [
+        [
+          {
+            "node": "Resultado Exitoso",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Resultado con Error",
             "type": "main",
             "index": 0
           }

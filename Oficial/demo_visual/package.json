@@ -1,0 +1,13 @@
+{
+  "name": "demo-visual-transcripciones",
+  "version": "1.0.0",
+  "description": "Demo visual: rellena el formulario de transcripción con Puppeteer",
+  "scripts": {
+    "demo": "node fill-visual.js",
+    "demo-limitado": "node fill-visual.js --limit 10"
+  },
+  "dependencies": {
+    "csv-parse": "^5.5.5",
+    "puppeteer": "^22.0.0"
+  }
+}
