@@ -19,11 +19,14 @@ import (
 
 // UploadHandler maneja la subida de imágenes y PDFs para procesamiento OCR.
 type UploadHandler struct {
-	actaRepo   *repository.ActaRepository
-	eventoRepo *repository.EventoRepository
-	ocrService *service.OCRService
-	actaService *service.ActaService
-	uploadDir  string
+	actaRepo              *repository.ActaRepository
+	eventoRepo            *repository.EventoRepository
+	ocrService            *service.OCRService
+	actaService           *service.ActaService
+	inconsistenciaService *service.InconsistenciaService
+	cqrsProjector         *service.CQRSProjector
+	uploadDir             string
+	retryCfg              service.RetryConfig
 }
 
 // NewUploadHandler crea un nuevo handler de subida de archivos.
@@ -32,21 +35,26 @@ func NewUploadHandler(
 	eventoRepo *repository.EventoRepository,
 	ocrService *service.OCRService,
 	actaService *service.ActaService,
+	inconsistenciaService *service.InconsistenciaService,
+	cqrsProjector *service.CQRSProjector,
 	uploadDir string,
 ) *UploadHandler {
 	// Crear directorio de uploads si no existe
 	os.MkdirAll(uploadDir, 0755)
 	return &UploadHandler{
-		actaRepo:   actaRepo,
-		eventoRepo: eventoRepo,
-		ocrService: ocrService,
-		actaService: actaService,
-		uploadDir:  uploadDir,
+		actaRepo:              actaRepo,
+		eventoRepo:            eventoRepo,
+		ocrService:            ocrService,
+		actaService:           actaService,
+		inconsistenciaService: inconsistenciaService,
+		cqrsProjector:         cqrsProjector,
+		uploadDir:             uploadDir,
+		retryCfg:              service.DefaultRetryConfig(),
 	}
 }
 
 // HandleUpload procesa POST /api/rrv/actas/upload
-// Flujo: Recibir archivo → SHA256 → Verificar duplicado → OCR → Validar → Guardar → Registrar eventos
+// Flujo: Recibir archivo → SHA256 → Verificar duplicado → OCR → Validar → Detectar inconsistencias → Guardar → CQRS → Eventos
 func (h *UploadHandler) HandleUpload(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
 	defer cancel()
@@ -94,8 +102,13 @@ func (h *UploadHandler) HandleUpload(c *gin.Context) {
 		map[string]any{"filename": header.Filename, "size": len(content), "hash": fileHash},
 	)
 
-	// 4. Verificar duplicado por hash
-	existente, err := h.actaRepo.FindByHash(ctx, fileHash)
+	// 4. Verificar duplicado por hash (con retry)
+	var existente *models.ActaRRV
+	err = service.WithRetry(ctx, h.retryCfg, "FindByHash", func() error {
+		var e error
+		existente, e = h.actaRepo.FindByHash(ctx, fileHash)
+		return e
+	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.APIResponse{
 			Success: false,
@@ -105,6 +118,9 @@ func (h *UploadHandler) HandleUpload(c *gin.Context) {
 		return
 	}
 	if existente != nil {
+		// Detectar inconsistencia: duplicado con datos diferentes
+		h.inconsistenciaService.DetectarYRegistrar(ctx, existente, "UPLOAD")
+
 		h.registrarEvento(ctx, existente.ActaID, models.EventoDuplicadoDetectado,
 			fmt.Sprintf("Archivo duplicado detectado: hash=%s, acta_id=%s", fileHash, existente.ActaID),
 			map[string]any{"hash": fileHash, "acta_id_existente": existente.ActaID},
@@ -154,7 +170,16 @@ func (h *UploadHandler) HandleUpload(c *gin.Context) {
 		)
 	}
 
-	// 8. Verificar duplicado por acta_id
+	// 8. Detectar inconsistencias contra datos de referencia (las 4 del documento)
+	inconsistencias := h.inconsistenciaService.DetectarYRegistrar(ctx, acta, "UPLOAD")
+	if len(inconsistencias) > 0 {
+		h.registrarEvento(ctx, acta.ActaID, "INCONSISTENCIAS_DETECTADAS",
+			fmt.Sprintf("%d inconsistencias detectadas y registradas en Logs_Inconsistencias", len(inconsistencias)),
+			map[string]any{"cantidad": len(inconsistencias)},
+		)
+	}
+
+	// 9. Verificar duplicado por acta_id
 	existentePorID, _ := h.actaRepo.FindByActaID(ctx, acta.ActaID)
 	if existentePorID != nil {
 		h.registrarEvento(ctx, acta.ActaID, models.EventoDuplicadoDetectado,
@@ -169,8 +194,11 @@ func (h *UploadHandler) HandleUpload(c *gin.Context) {
 		return
 	}
 
-	// 9. Guardar acta en MongoDB
-	if err := h.actaRepo.InsertActa(ctx, acta); err != nil {
+	// 10. Guardar acta en MongoDB (con retry para tolerancia a fallos)
+	err = service.WithRetry(ctx, h.retryCfg, "InsertActa", func() error {
+		return h.actaRepo.InsertActa(ctx, acta)
+	})
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.APIResponse{
 			Success: false,
 			Message: "Error guardando acta en base de datos",
@@ -184,7 +212,10 @@ func (h *UploadHandler) HandleUpload(c *gin.Context) {
 		map[string]any{"estado": acta.Estado},
 	)
 
-	// 10. Respuesta exitosa
+	// 11. Actualizar vista materializada CQRS (asíncrono)
+	h.cqrsProjector.Proyectar(ctx)
+
+	// 12. Respuesta exitosa
 	statusCode := http.StatusCreated
 	message := fmt.Sprintf("Acta %s procesada y guardada exitosamente", acta.ActaID)
 	if acta.Estado == models.EstadoError {

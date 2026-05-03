@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"c:\\\\UNIVALLE\\\\SEPTIMO-SEMESTRE\\\\SISTEMAS DISTRIBUIDOS\\\\PRACTICA 4\\\\Nueva carpeta\\\\ConteoDeVotosRRV_Oficial\\\\RRV\" -Recurse -Force)",
+      "Bash(Select-Object -ExpandProperty FullName)"
+    ]
+  }
+}
