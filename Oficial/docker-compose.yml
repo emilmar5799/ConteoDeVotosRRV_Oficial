@@ -1,0 +1,141 @@
+version: '3.8'
+
+services:
+  pg-0:
+    image: docker.io/deepfenceio/postgresql-repmgr:12.8.0-debian-10-r71
+    ports:
+      - "5432"
+    volumes:
+      - pg_0_data:/bitnami/postgresql
+    environment:
+      - POSTGRESQL_POSTGRES_PASSWORD=adminpassword
+      - POSTGRESQL_USERNAME=repl_user
+      - POSTGRESQL_PASSWORD=repl_password
+      - POSTGRESQL_DATABASE=sistema_electoral
+      - REPMGR_PASSWORD=repmgrpassword
+      - REPMGR_PRIMARY_HOST=pg-0
+      - REPMGR_PRIMARY_PORT=5432
+      - REPMGR_PARTNER_NODES=pg-0,pg-1,pg-2
+      - REPMGR_NODE_NAME=pg-0
+      - REPMGR_NODE_NETWORK_NAME=pg-0
+      - REPMGR_PORT_NUMBER=5432
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  pg-1:
+    image: docker.io/deepfenceio/postgresql-repmgr:12.8.0-debian-10-r71
+    ports:
+      - "5432"
+    volumes:
+      - pg_1_data:/bitnami/postgresql
+    environment:
+      - POSTGRESQL_POSTGRES_PASSWORD=adminpassword
+      - POSTGRESQL_USERNAME=repl_user
+      - POSTGRESQL_PASSWORD=repl_password
+      - POSTGRESQL_DATABASE=sistema_electoral
+      - REPMGR_PASSWORD=repmgrpassword
+      - REPMGR_PRIMARY_HOST=pg-0
+      - REPMGR_PRIMARY_PORT=5432
+      - REPMGR_PARTNER_NODES=pg-0,pg-1,pg-2
+      - REPMGR_NODE_NAME=pg-1
+      - REPMGR_NODE_NETWORK_NAME=pg-1
+      - REPMGR_PORT_NUMBER=5432
+    depends_on:
+      pg-0:
+        condition: service_healthy
+
+  pg-2:
+    image: docker.io/deepfenceio/postgresql-repmgr:12.8.0-debian-10-r71
+    ports:
+      - "5432"
+    volumes:
+      - pg_2_data:/bitnami/postgresql
+    environment:
+      - POSTGRESQL_POSTGRES_PASSWORD=adminpassword
+      - POSTGRESQL_USERNAME=repl_user
+      - POSTGRESQL_PASSWORD=repl_password
+      - POSTGRESQL_DATABASE=sistema_electoral
+      - REPMGR_PASSWORD=repmgrpassword
+      - REPMGR_PRIMARY_HOST=pg-0
+      - REPMGR_PRIMARY_PORT=5432
+      - REPMGR_PARTNER_NODES=pg-0,pg-1,pg-2
+      - REPMGR_NODE_NAME=pg-2
+      - REPMGR_NODE_NETWORK_NAME=pg-2
+      - REPMGR_PORT_NUMBER=5432
+    depends_on:
+      pg-0:
+        condition: service_healthy
+
+  pgpool:
+    image: docker.io/bitnamilegacy/pgpool:4.6.3
+    ports:
+      - "5432:5432"
+    environment:
+      - PGPOOL_BACKEND_NODES=0:pg-0:5432,1:pg-1:5432,2:pg-2:5432
+      - PGPOOL_SR_CHECK_USER=postgres
+      - PGPOOL_SR_CHECK_PASSWORD=adminpassword
+      - PGPOOL_ENABLE_LDAP=no
+      - PGPOOL_POSTGRES_USERNAME=postgres
+      - PGPOOL_POSTGRES_PASSWORD=adminpassword
+      - PGPOOL_ADMIN_USERNAME=admin
+      - PGPOOL_ADMIN_PASSWORD=adminpassword
+      - PGPOOL_ENABLE_LOAD_BALANCING=yes
+    depends_on:
+      pg-0:
+        condition: service_healthy
+      pg-1:
+        condition: service_started
+      pg-2:
+        condition: service_started
+
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_HOST=pgpool
+      - DB_USER=postgres
+      - DB_PASSWORD=adminpassword
+      - DB_NAME=sistema_electoral
+      - DB_PORT=5432
+    depends_on:
+      - pgpool
+    volumes:
+      - ./:/data  # Para poder leer los CSVs
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_URL=http://localhost:8080/api
+    depends_on:
+      - backend
+
+  n8n:
+    build:
+      context: ./n8n_custom
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_HOST=0.0.0.0
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - NODE_ENV=production
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=false
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./:/data  # Para acceder a Transcripciones.csv
+    depends_on:
+      - frontend
+
+volumes:
+  pg_0_data:
+  pg_1_data:
+  pg_2_data:
+  n8n_data:

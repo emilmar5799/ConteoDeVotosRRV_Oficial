@@ -1,0 +1,538 @@
+recintoCode,CodigoTerritorial,CodigoRecinto,RecintoNombre,RecintoDireccion,NumMesas
+10101,10102,1010200001,U.E. Padresama,Se encuentra sobre la carretera cochabamba a Santa Cruz km 150,9
+10102,10103,1010300010,U.E. Guillermo Urquidi,Av. Humboldt entre Av. Victor Ustariz y Av. Blanco Galindo,1
+10103,10103,1010300011,Escuela Gualberto Villarroel,Arani,16
+10201,10103,1010300027,(Corcel) Penitenciaria San Sebastian Varones,Plaz. San Sebastion Acera Norte,14
+10202,10201,1020100041,U.E. Patria Nueva,Zona Sud Barrio 1ro. De Mayo OTB El Palmar,4
+10301,10201,1020100045,Colegio Francisco Vignaud,Capitan Ustariz entre Av. Juan Rivera y C. Hans Grether,17
+10302,10201,1020100062,U.E. Pedro Domingo Murillo,Chiuchi Arriba,5
+10303,10301,1030100067,Unidad Educativa Molinero,Molinero,14
+10304,10302,1030200081,Colegio Pio XII,25 de Mayo entre Punata,6
+10401,10302,1030200087,Escuela Mixta Dr. Martin Cardenas,Mina Asientos,10
+10402,10303,1030300097,Escuela Ladislao Cabrera,Chilicchi,18
+10403,10304,1030400115,U.E. Joso Carlos Carrillo,Comunidad Tirani?Final Av. Atahuallpa segunda circunvalacion,6
+10404,10304,1030400121,U.E. Carmen Rosa Salguero,Calle Miguel Mercado Moreira esq. Circunvalacion,4
+10405,10401,1040100125,Unidad Educativa Paracti (Villa Tunari),Paracti(Villa Tunari),7
+10501,10401,1040100132,Unidad Educativa 1ro de Mayo,Primero de Mayo,11
+10502,10401,1040100143,Nucleo Educativo Chapisirca,Chapisirca,7
+10601,10402,1040200150,U.E. San Antonio,Comunidad San Antonio,11
+10602,10402,1040200161,Nucleo Escolar Laguna Grande,Laguna Grande,17
+10701,10403,1040300178,Nucleo Educativo Chapisirca,Chapisirca,3
+10702,10403,1040300181,Unidad Educativa Moleto Icoya (V.Tunari),Moleto,5
+10703,10404,1040400186,U.E. Rumy Corral,Comunidad Rumy Corral Centro,3
+10704,10404,1040400189,Unidad Educativa Ramadas,La Ramada,8
+10801,10404,1040400197,Colegio Pio XII,25 de Mayo entre Punata,9
+10901,10405,1040500206,Unidad Educativa Rosendo Peoa,OTB Urbanizacion PIL Sarcobamba Calle Luis Zegarra entre Luis Montaoo y Jorge Udaeta,12
+10902,10601,1060100218,Instituto Tecnologico El Paso,Avenida Elias Meneces,3
+10903,10601,1060100221,U.E. Combuyo,Calle de Combuyo,10
+11001,10601,1060100231,Centro Integral Nioo Jesus Fe y Alegria,Calle 4 y Miraflores,11
+11002,10602,1060200242,U.E. Avelino Morida,Zubieta,19
+11003,10602,1060200261,Nucleo Escolar Villa Granado,Villa Granado,9
+20101,10701,1070100270,(Corcel) Penitenciaria San Antonio,Av. Ayacucho Frente a La Terminal,2
+20102,10702,1070200272,Centro Internado Misicuni,Misicuni,2
+20103,10702,1070200274,U.E. Nacional San Isidro,Zona Alto Buena Vista Otb Kasa Wasa,11
+20104,10702,1070200285,U.E. Adolfo Mercado,Tacopaya,10
+20105,10703,1070300295,Colegio Boliviano Argentino,Baptista y Colombia,5
+20201,10703,1070300300,U.E. Bartolina Sisa,Calle Innominada,18
+20202,10703,1070300318,Nucleo Escolar Villa Granado,Villa Granado,8
+20203,10704,1070400326,Escuela Dr. Demetrio Canelas,Ayapampa,16
+20204,10704,1070400342,Nucleo Escolar Simon Bolivar (Thiomoko),Cleomedes blanco y Atacama,7
+20205,10901,1090100349,Escuela Seccional Waripucara,Waripucara,14
+20206,10901,1090100363,Nucleo Escolar Laguna Grande,Laguna Grande,2
+20301,10902,1090200365,U.E. Genoveva Roos,Calle Los Robles entre Av. Segunda Circunvalacion y Calle Sofocles,5
+20302,10903,1090300370,Instituto Tecnologico El Paso,Avenida Elias Meneces,14
+20303,10903,1090300384,U.E. Padresama,Se encuentra sobre la carretera cochabamba a Santa Cruz km 150,12
+20304,10903,1090300396,Nucleo Educativo Tipajara,Tipajara,5
+20305,11001,1100100401,Unidad Educativa Waca Playa,Waca Playa,9
+20306,11002,1100200410,U.E. Coracaba,Coracaba,7
+20307,11002,1100200417,Unidad Educativa Iglesiani,Iglesiani,6
+20308,20102,2010200423,U.E. Zenobio Gallardo,Distrito Ramadas,18
+20401,20102,2010200441,U.E. Cochabamba,Calle Jordon No 236,3
+20402,20104,2010400444,U.E. Combuyo,Calle de Combuyo,5
+20403,20104,2010400449,Escuela Tomas Bata,Av. 12 de Enero entre martin Cardenas Y Pacheco,16
+20404,20104,2010400465,Nucleo Escolar Laguna Grande,Laguna Grande,19
+20405,20105,2010500484,Unidad Educativa 1ro de Mayo,Primero de Mayo,9
+20501,20201,2020100493,U.E. San Miguel,Av. Ustariz S/N,2
+20502,20201,2020100495,Nucleo Joso Claure (U. E. San Vicente),San Vicente,2
+20503,20202,2020200497,Unidad Educativa Chaqui Mayu,Ch Aquimayu,8
+20601,20202,2020200505,U.E. Avispas,Carretera Cochabamba a Santa Cruz KM/144 Sindicato Avispas,4
+20602,20203,2020300509,U.E. Humberto Portocarrero,Zona Pampa San Miguel,13
+20603,20203,2020300522,Instituto Eduardo Laredo,Av. Ramon Rivero,11
+20604,20204,2020400533,Escuela Walter Vallejo,Av. 9 de Abril,20
+20605,20206,2020600553,Escuela Gualberto Villarroel,Arani,3
+20606,20206,2020600556,Unidad Educativa 1ro de Mayo,Primero de Mayo,14
+20607,20206,2020600570,U.E. Lacolaconi,Lacolaconi,20
+20608,20301,2030100590,Unidad Educativa La Sagrada Familia,Av. 16 de Julio,1
+20701,20301,2030100591,Escuela La Estrella (San Gabriel),San Gabriel,18
+20702,20302,2030200609,Unidad Educativa Ivirizu Vandiola,Ivirizu Vandiola,6
+20801,20302,2030200615,Escuela Dr. Demetrio Canelas,Ayapampa,7
+20802,20302,2030200622,U.E. Patria Nueva,Zona Sud Barrio 1ro. De Mayo OTB El Palmar,1
+20803,20303,2030300623,Unidad Educativa Simon Bolivar (Sumunpaya),Zona Sumunpuya Sud,19
+20804,20303,2030300642,Escuela Gualberto Villarroel,Arani,14
+20805,20303,2030300656,U.E. Simon I. Patioo,Avenida Pairumani,5
+20806,20305,2030500661,Unidad Educativa 14 de Septiembre,Calle Francisco Suarez entre Rigoberto Sains y Cesar Achaval,3
+20807,20305,2030500664,U.E. Serrano,Sindicato Agrarario Serrano?Carretera Troncal Cochabamba Mizque,12
+20901,20306,2030600676,Unidad Educativa Molinero,Molinero,14
+20902,20307,2030700690,U.E. Abraham Flores Velasquez,Alalay,9
+20903,20307,2030700699,U.E. Cuatro Esquinas,Comunidad 4 Esquinas,3
+20904,20308,2030800702,U.E. Prof. Benedicto Duron Ortoz,La Florida,12
+20905,20401,2040100714,U.E. Avelino Morida,Zubieta,12
+21001,20401,2040100726,U.E.T.H. Mariscal Sucre,Entre Calle el Deber y Los Andes (entrada por la Av. La Resistencia),13
+21002,20402,2040200739,U.E. Chillca Grande,Chillca Grande,10
+21003,20403,2040300749,U.E. Rumy Corral,Comunidad Rumy Corral Centro,20
+21004,20403,2040300769,Sede Social De Tipa Tipa,Tipa Tipa,13
+21005,20403,2040300782,U.E. Padre Luis Diez del Pozo,Av. Zofraco,9
+21006,20404,2040400791,Colegio Sebastian Pagador,Villa Sebastian Pagador Av. Machacamarca,4
+21101,20405,2040500795,U.E. Madre De La Divina Providencia,Otb Villa Armonia,16
+21102,20501,2050100811,Unidad Educativa Quturi,Quturi,7
+21103,20501,2050100818,(Corcel) Penitenciaria San Antonio,Av. Ayacucho Frente a La Terminal,17
+21104,20502,2050200835,Unidad Educativa Paracti (Villa Tunari),Paracti(Villa Tunari),4
+21105,20503,2050300839,U.E. Padre Luis Diez del Pozo,Av. Zofraco,5
+21201,20503,2050300844,Rodriguez,Bolovar y 16 de Julio,17
+21202,20601,2060100861,Centro Internado Misicuni,Misicuni,10
+21203,20602,2060200871,Colegio Padre Andros Cuschieri,Calle Kanaut S/N,17
+21204,20602,2060200888,U.E. Rumy Corral,Comunidad Rumy Corral Centro,1
+21301,20602,2060200889,U. E. Titos Linde,Av. Malteria C/ Innominada a una cuadra y media del Instituto Oncologico Nacional,11
+21302,20602,2060200900,U.E. Simon I. Patioo,Avenida Pairumani,9
+21303,20603,2060300909,(Corcel) Penitenciaria San Sebastian Mujeres,Plaz. San Sebastion Acera Oeste,17
+21304,20603,2060300926,U.E. Tocnico Humanostico San Rafael,Av. Los Molles lado Sud Posgrado Agronomia UMSS.,14
+21305,20604,2060400940,U.E. Simon I. Patioo,Avenida Pairumani,8
+21306,20604,2060400948,Unidad Educativa Paracti (Villa Tunari),Paracti(Villa Tunari),1
+21307,20605,2060500949,Sede Social Sombrerito,Sindicato Agrarario Sombrerito? Carretera Troncal Cochabamba Mizque,13
+21401,20605,2060500962,Unidad Educativa Estados Unidos,Isiboro y Todos Santos,9
+21402,20606,2060600971,Unidad Educativa Jesus Maestro,Zona Chiquicollo,6
+21501,20607,2060700977,Escuela Chuou Chuoini,Chuou Chuouni,5
+21502,20608,2060800982,U. E. Nuestra Seoora del Rosario,Pasaje Bolovar?Tarija,14
+21601,20701,2070100996,Unidad Educativa 14 de Septiembre,Calle Francisco Suarez entre Rigoberto Sains y Cesar Achaval,13
+21602,20701,2070101009,Unidad Educativa 14 de Septiembre,Calle Francisco Suarez entre Rigoberto Sains y Cesar Achaval,6
+21701,20701,2070101015,Unidad Educativa Iglesiani,Iglesiani,5
+21702,20701,2070101020,U.E. Prof. Benedicto Duron Ortoz,La Florida,8
+21703,20801,2080101028,Unidad Educativa Nataniel Aguirre,Av Benemeritos del Chaco y Calle Walter Rocha,6
+21801,20801,2080101034,Hogar Comunitario Disneylandia,Zona Sud,3
+21802,20802,2080201037,U.E. Simon I. Patioo,Avenida Pairumani,9
+21803,20802,2080201046,U.E. El Mirador,Zona 5 Alto Mirador,20
+21901,20802,2080201066,U.E. Padresama,Se encuentra sobre la carretera cochabamba a Santa Cruz km 150,4
+21902,20803,2080301070,Escuela Seccional Waripucara,Waripucara,16
+22001,20803,2080301086,U.E. Ayni Pacha,C. Santa Elena entre Av. Pisiga y C. Innominada ? OTB Alalay Alto Mirador,3
+22002,20803,2080301089,Unidad Educativa El Sausalito,Santa Rosa (Colcapirhua) c/ Martin Cardenas y Oscar Alfaro,14
+30101,20804,2080401103,Unidad Educativa Hno Pacifico Feletti,Villa 1o de Mayo,4
+30201,20804,2080401107,Kinder San Joaquon,C. Viloma entre C. Colomi y Av. De la Fuerza Aerea,1
+30202,20805,2080501108,U.E. San Francisco Javier,Zona Alto Buena Vista OTB ISIDRO,18
+30203,20805,2080501126,U.E. Bartolina Sisa,Calle Innominada,2
+30301,20805,2080501128,U.E. Prof. Jaime Alfonso Escalante Gutierrez,Barrio Magisterio Las Delicias,8
+30302,20805,2080501136,Nucleo Educativo Chapisirca,Chapisirca,13
+30303,20806,2080601149,U.E. Padresama,Se encuentra sobre la carretera cochabamba a Santa Cruz km 150,20
+30401,20807,2080701169,U.E. Avelino Morida,Zubieta,6
+30402,20807,2080701175,Escuela Gualberto Villarroel,Arani,3
+30403,20901,2090101178,Unidad Educativa Eje Pampa,Eje Pampa,2
+30404,20901,2090101180,U.E. Rumy Corral,Comunidad Rumy Corral Centro,8
+30501,20901,2090101188,Colegio Evangelico Emanuel,C. Baptista entre C. La Paz y C. J. de la Reza,5
+30502,20903,2090301193,Nucleo Escolar Ismael Montes,Conda Baja,9
+30601,20905,2090501202,Escuela Dr. Demetrio Canelas,Ayapampa,11
+30602,21001,2100101213,U.E. Prof. Jaime Alfonso Escalante Gutierrez,Barrio Magisterio Las Delicias,7
+30701,21001,2100101220,Unidad Educativa Huanacuni Grande,Huanacuni Chico,20
+30702,21002,2100201240,U.E. Lacuyo,Challa,13
+30703,21002,2100201253,(Corcel) Penitenciaria San Antonio,Av. Ayacucho Frente a La Terminal,19
+30801,21003,2100301272,Sede Sindical De Chahuarani Chico,En la Sede de Chahuarani Chico,19
+30802,21005,2100501291,U.E. Avelino Morida,Zubieta,9
+30803,21006,2100601300,Colegio Padre Andros Cuschieri,Calle Kanaut S/N,8
+30901,21006,2100601308,U.E. 27 de Mayo,Reno Barrientos Ortuoo,10
+30902,21101,2110101318,Colegio Pio XII,25 de Mayo entre Punata,14
+30903,21101,2110101332,Nucleo Escolar Ismael Montes,Conda Baja,15
+30904,21102,2110201347,U.E. 14 de Septiembre,Villa 14 de Septiembre,6
+30905,21103,2110301353,Escuela Cristal Mayu,Cristal Mayu,10
+31001,21103,2110301363,U.E. Nacional San Isidro,Zona Alto Buena Vista Otb Kasa Wasa,10
+31002,21104,2110401373,Escuela Dr. Demetrio Canelas,Ayapampa,8
+31003,21104,2110401381,Unidad Educativa Quiroga,Quiroga,3
+31101,21105,2110501384,U.E. Nacional San Isidro,Zona Alto Buena Vista Otb Kasa Wasa,3
+31201,21201,2120101387,Colegio Padre Andros Cuschieri,Calle Kanaut S/N,12
+31202,21201,2120101399,Escuela Seccional Rene Barrientos,Ventilla,2
+31203,21203,2120301401,U.E. San Antonio,Comunidad San Antonio,16
+31204,21203,2120301417,Centro Integral Nioo Jesus Fe y Alegria,Calle 4 y Miraflores,1
+31205,21204,2120401418,U.E. San Crispin,Calle final Sucre del Municipio de Colcapirhua,17
+31206,21301,2130101435,Escuela Gualberto Villarroel,Arani,8
+31301,21302,2130201443,U.E. Tipa Pampa,Comunidad Tipa Pampa,1
+31302,21303,2130301444,Colegio La Salle Fiscal,Av. Tiahuanaco Frente a Tronsito,14
+31303,21304,2130401458,Sede Social de OTB Cerro San Miguel Alto,Calle Ayllu esquina calle Bonifacio,4
+31401,21304,2130401462,Escuela Gualberto Villarroel,Arani,18
+31402,21401,2140101480,U.E. Nacional San Isidro,Zona Alto Buena Vista Otb Kasa Wasa,19
+31403,21401,2140101499,Unidad Educativa 1ro de Mayo,Primero de Mayo,8
+31404,21402,2140201507,Unidad Educativa Daniel Salamanca,Colcapirhua,4
+31405,21402,2140201511,Unidad Educativa Nataniel Aguirre,Av Benemeritos del Chaco y Calle Walter Rocha,17
+31501,21501,2150101528,U.E. Simon I. Patioo,Avenida Pairumani,16
+31601,21501,2150101544,Escuela Cristal Mayu,Cristal Mayu,14
+31602,21501,2150101558,Escuela Ladislao Cabrera,Chilicchi,7
+40101,21502,2150201565,Unidad Educativa de La Fuerza Aerea,Av de La Fuerza Aerea entre Calle Cap. Luis Garcia y Moto Mendez,10
+40102,21502,2150201575,U.E. Padresama,Se encuentra sobre la carretera cochabamba a Santa Cruz km 150,1
+40103,21601,2160101576,Colegio Boliviano Argentino,Baptista y Colombia,1
+40104,21601,2160101577,U.E. Vilomilla,Vilomilla,20
+40201,21601,2160101597,Instituto Tecnologico El Paso,Avenida Elias Meneces,20
+40202,21601,2160101617,Venezuela,Liceo Adela Zamudio,7
+40301,21602,2160201624,Escuela Monseoor Angel Gelmi,Tita Gallo,6
+40302,21702,2170201630,Unidad Educativa Molinero,Molinero,15
+40401,21703,2170301645,Colegio Boliviano Argentino,Baptista y Colombia,14
+40402,21703,2170301659,Sede Social de OTB Cerro San Miguel Alto,Calle Ayllu esquina calle Bonifacio,20
+40501,21801,2180101679,Escuela Ladislao Cabrera,Chilicchi,3
+40502,21801,2180101682,U.E. Pedro Domingo Murillo,Chiuchi Arriba,3
+40503,21802,2180201685,U.E. Zenobio Gallardo,Distrito Ramadas,2
+40504,21803,2180301687,Unidad Educativa Molinero,Molinero,18
+40505,21902,2190201705,U.E. Avelino Morida,Zubieta,12
+40601,22002,2200201717,Colegio Evangelico Emanuel,C. Baptista entre C. La Paz y C. J. de la Reza,11
+40602,22002,2200201728,U.E. El Paso A,Zona Central El Paso,3
+40603,22002,2200201731,Escuela Ladislao Cabrera,Chilicchi,19
+40701,30201,3020101750,Escuela Ladislao Cabrera,Chilicchi,11
+40702,30202,3020201761,Colegio Pedro Ignacio Rivero,Mizque,15
+40801,30202,3020201776,Escuela Ladislao Cabrera,Chilicchi,17
+40802,30202,3020201793,Unidad Educativa Bolivia (La Maica),La Maica Central,19
+40901,30203,3020301812,(Corcel) Penitenciaria San Antonio,Av. Ayacucho Frente a La Terminal,8
+40902,30302,3030201820,Unidad Educativa Santiago,Achandara y Calle Imnominada,6
+40903,30302,3030201826,Escuela Ladislao Cabrera,Chilicchi,10
+41001,30302,3030201836,Unidad Educativa Moleto Icoya (V.Tunari),Moleto,15
+41101,30303,3030301851,U.E. Israel,Zona Villa Israel,19
+41201,30401,3040101870,Unidad Educativa Estados Unidos,Isiboro y Todos Santos,10
+41202,30401,3040101880,Unidad Educativa Antonio Diez,Itocta,8
+41301,30402,3040201888,Escuela Eugenia Ravasco,Av. Esperanza?Rumi Mayu (Tiquipaya),2
+41401,30403,3040301890,Unidad Educativa Panama,Panamo,5
+41501,30501,3050101895,Colegio Franz Tamayo,Calle Rafael Pavon entre Av,2
+41502,30501,3050101897,Colegio La Salle Fiscal,Av. Tiahuanaco Frente a Tronsito,11
+41503,30501,3050101908,Colegio Franz Tamayo,Calle Rafael Pavon entre Av,12
+41601,30602,3060201920,Unidad Educativa Domingo Savio (Ex Lorenzo Filho),Av. Aniceto Arce Nro 804 entre N. Morales,13
+50101,30702,3070201933,Kinder San Joaquon,C. Viloma entre C. Colomi y Av. De la Fuerza Aerea,3
+50102,30702,3070201936,Unidad Educativa Antonio Diez,Itocta,5
+50103,30702,3070201941,Unidad Educativa Thago Thago,Thago Thago,15
+50104,30702,3070201956,Hogar Comunitario Disneylandia,Zona Sud,19
+50201,30801,3080101975,Escuela Melchor Cuadros,Av. Pairumani?Vinto,9
+50202,30801,3080101984,Colegio Pio XII,25 de Mayo entre Punata,7
+50203,30801,3080101991,Unidad Educativa Tocopilla,Tocopilla,12
+50204,30802,3080202003,U.E. San Antonio,Comunidad San Antonio,7
+50301,30803,3080302010,Centro de Atencion Al Turista,Incallajta,20
+50302,30901,3090102030,Unidad Educativa Club De Leones,Circunvalacion 375 Enrique Arce,19
+50303,30901,3090102049,Unidad Educativa Central Villa Pereira,Villa Pereira,2
+50401,30902,3090202051,Escuela Manuel De Ugarte,Aiquile,17
+50402,30903,3090302068,Escuela Gualberto Villarroel,Arani,4
+50403,30903,3090302072,Unidad Educativa Iglesiani,Iglesiani,3
+50404,31001,3100102075,U.E. Prof. Benedicto Duron Ortoz,La Florida,1
+50405,31001,3100102076,U.E. Tiquirani,OTB Tiquirani,20
+50501,31002,3100202096,Escuela Ladislao Cabrera,Chilicchi,8
+50502,31002,3100202104,Unidad Educativa Jesus Maestro,Zona Chiquicollo,12
+50601,31002,3100202116,Unidad Educativa Ramadas,La Ramada,13
+50602,31003,3100302129,Unidad Educativa Eje Pampa,Eje Pampa,10
+50701,31003,3100302139,U.E. Joso Carlos Carrillo,Comunidad Tirani?Final Av. Atahuallpa segunda circunvalacion,20
+50702,31101,3110102159,Unidad Educativa Domingo Savio (Ex Lorenzo Filho),Av. Aniceto Arce Nro 804 entre N. Morales,11
+50801,31202,3120202170,Unidad Educativa Libertad,C/ Porvenir y C/ Mejillones,20
+50802,31202,3120202190,Colegio Franz Tamayo,Calle Rafael Pavon entre Av,9
+50901,31202,3120202199,Nucleo Escolar Ismael Montes,Conda Baja,10
+50902,31203,3120302209,Escuela Fiscal Juan XXIII A,Av. Guido Brault Omi y Mons. Francisco Cano,5
+51001,31203,3120302214,Sede Social de OTB Cerro San Miguel Alto,Calle Ayllu esquina calle Bonifacio,9
+51002,31204,3120402223,Escuela Aguada,Aguada,18
+51003,31205,3120502241,U.E. Chillca Grande,Chillca Grande,5
+51101,31206,3120602246,Unidad Educativa Chaqui Mayu,Ch Aquimayu,17
+51102,31301,3130102263,Unidad Educativa Chaqui Mayu,Ch Aquimayu,13
+51103,31303,3130302276,Unidad Educativa Rosendo Peoa,OTB Urbanizacion PIL Sarcobamba Calle Luis Zegarra entre Luis Montaoo y Jorge Udaeta,1
+51201,31401,3140102277,Sede Sindical Yajo Pampa,Comunidad Yajo Pampa,20
+51202,31402,3140202297,Unidad Educativa Panama,Panamo,16
+51203,31402,3140202313,Instituto Tecnologico El Paso,Avenida Elias Meneces,7
+51301,31402,3140202320,Unidad Educativa Estados Unidos,Isiboro y Todos Santos,13
+51302,31402,3140202333,U.E. Simon I. Patioo,Avenida Pairumani,18
+51401,31403,3140302351,Escuela Seccional Waripucara,Waripucara,12
+51402,31404,3140402363,U.E. Prof. Jaime Alfonso Escalante Gutierrez,Barrio Magisterio Las Delicias,17
+51501,31405,3140502380,U.E. San Francisco Javier,Zona Alto Buena Vista OTB ISIDRO,16
+51601,31405,3140502396,Escuela Dr. Demetrio Canelas,Ayapampa,8
+60101,31501,3150102404,U.E. San Francisco Javier,Zona Alto Buena Vista OTB ISIDRO,1
+60201,31601,3160102405,Escuela Chuou Chuoini,Chuou Chuouni,12
+60202,31601,3160102417,U.E. Serrano,Sindicato Agrarario Serrano?Carretera Troncal Cochabamba Mizque,16
+60301,31602,3160202433,Unidad Educativa El Sausalito,Santa Rosa (Colcapirhua) c/ Martin Cardenas y Oscar Alfaro,10
+60302,31602,3160202443,Centro Internado Misicuni,Misicuni,11
+60303,40101,4010102454,Unidad Educativa Ramadas,La Ramada,16
+60401,40101,4010102470,U.E. Tocnico Humanostico San Rafael,Av. Los Molles lado Sud Posgrado Agronomia UMSS.,17
+60402,40102,4010202487,Nucleo Escolar Beta Raqay Pampa,Raqay Pampa,17
+60501,40103,4010302504,Unidad Educativa Nataniel Aguirre,Av Benemeritos del Chaco y Calle Walter Rocha,12
+60502,40103,4010302516,Unidad Educativa Kewioal,Qhewioal,9
+60601,40201,4020102525,Nucleo Escolar Simon Bolivar (Thiomoko),Cleomedes blanco y Atacama,3
+70101,40201,4020102528,U.E. Lacolaconi,Lacolaconi,17
+70102,40202,4020202545,U.E. Jose Nabo Quintana Navia,Calle Cochabamba frente a la capilla Virgen de Guadalupe,6
+70103,40301,4030102551,U.E. El Paso A,Zona Central El Paso,7
+70104,40301,4030102558,Colegio La Salle,Junon y Mayor Rocha,19
+70105,40301,4030102577,U.E. Prof. Jaime Alfonso Escalante Gutierrez,Barrio Magisterio Las Delicias,6
+70201,40302,4030202583,Nucleo Escolar Beta Raqay Pampa,Raqay Pampa,18
+70202,40401,4040102601,Centro de Atencion Al Turista,Incallajta,18
+70301,40401,4040102619,Unidad Educativa Libertad,C/ Porvenir y C/ Mejillones,7
+70302,40401,4040102626,U.E. 14 de Septiembre,Villa 14 de Septiembre,14
+70303,40501,4050102640,Escuela Manuel De Ugarte,Aiquile,3
+70401,40501,4050102643,Unidad Educativa Atiy,Por San Isidro,3
+70402,40503,4050302646,Unidad Educativa Sagrada Familia,Vinto,19
+70403,40504,4050402665,Unidad Educativa Keraya,Keraya,20
+70404,40505,4050502685,Nucleo Escolar Beta Raqay Pampa,Raqay Pampa,2
+70501,40601,4060102687,Unidad Educativa La Sagrada Familia,Av. 16 de Julio,1
+70502,40601,4060102688,U.E. San Miguel,Av. Ustariz S/N,15
+70503,40602,4060202703,U.E. Combuyo,Calle de Combuyo,20
+70601,40603,4060302723,U.E. San Crispin,Calle final Sucre del Municipio de Colcapirhua,4
+70602,40701,4070102727,Unidad Educativa de La Fuerza Aerea,Av de La Fuerza Aerea entre Calle Cap. Luis Garcia y Moto Mendez,11
+70603,40801,4080102738,U.E.T.H. Mariscal Sucre,Entre Calle el Deber y Los Andes (entrada por la Av. La Resistencia),11
+70701,40802,4080202749,U.E. El Mirador,Zona 5 Alto Mirador,15
+70702,40901,4090102764,Colegio Padre Andros Cuschieri,Calle Kanaut S/N,16
+70703,40902,4090202780,Unidad Educativa Paracti (Villa Tunari),Paracti(Villa Tunari),13
+70704,40902,4090202793,Sede Social De Tipa Tipa,Tipa Tipa,19
+70705,40903,4090302812,Colegio San Miguel (Tiquipaya),C/T. Torrico?C.Beni,20
+70706,41101,4110102832,Instituto Tecnologico El Paso,Avenida Elias Meneces,20
+70707,41101,4110102852,Unidad Educativa Hno Pacifico Feletti,Villa 1o de Mayo,15
+70801,41201,4120102867,Rodriguez,Bolovar y 16 de Julio,12
+70802,41202,4120202879,Unidad Educativa 1ro de Mayo,Primero de Mayo,6
+70803,41301,4130102885,(Corcel) Penitenciaria San Sebastian Varones,Plaz. San Sebastion Acera Norte,13
+70804,41401,4140102898,U.E. Tocnico Humanostico San Rafael,Av. Los Molles lado Sud Posgrado Agronomia UMSS.,11
+70805,41401,4140102909,Nucleo Escolar Simon Bolivar (Thiomoko),Cleomedes blanco y Atacama,19
+70901,41401,4140102928,U.E. El Mirador,Zona 5 Alto Mirador,17
+70902,41501,4150102945,U.E. Coracaba,Coracaba,11
+70903,41501,4150102956,Centro Integral Nioo Jesus Fe y Alegria,Calle 4 y Miraflores,16
+70904,41502,4150202972,Unidad Educativa Rosendo Peoa,OTB Urbanizacion PIL Sarcobamba Calle Luis Zegarra entre Luis Montaoo y Jorge Udaeta,10
+71001,41503,4150302982,Escuela Ismael Montes,La Chulla,3
+71002,41503,4150302985,Nucleo Escolar Simon Bolivar (Thiomoko),Cleomedes blanco y Atacama,8
+71003,50101,5010102993,Unidad Educativa Moleto Icoya (V.Tunari),Moleto,11
+71004,50101,5010103004,Centro de Atencion Al Turista,Incallajta,4
+71005,50101,5010103008,U.E. Rumy Corral,Comunidad Rumy Corral Centro,2
+71101,50102,5010203010,Escuela Dr. Demetrio Canelas,Ayapampa,19
+71102,50102,5010203029,Nucleo Escolar Ismael Montes,Conda Baja,13
+71103,50103,5010303042,Unidad Educativa Humamarca,Comunidad de Humamarca,9
+71104,50104,5010403051,Unidad Educativa Panama,Panamo,3
+71105,50201,5020103054,U.E. Avelino Morida,Zubieta,10
+71106,50201,5020103064,U.E. Ana Maroa Romero de Campero,Villa Victoria,16
+71201,50202,5020203080,Unidad Educativa Tocopilla,Tocopilla,7
+71301,50202,5020203087,Escuela Dr. Demetrio Canelas,Ayapampa,10
+71302,50202,5020203097,U.E. 5 de Septiembre,OTB 21 de Septiembre?Calle Tte. Benavides,7
+71401,50203,5020303104,Nucleo Escolar Confital,Confital,5
+71402,50204,5020403109,U.E. Madre De La Divina Providencia,Otb Villa Armonia,2
+71403,50204,5020403111,Unidad Educativa David Arzabe,Vinto,16
+71501,50204,5020403127,U.E. Rumy Corral,Comunidad Rumy Corral Centro,11
+71502,50301,5030103138,Nucleo Educativo Chapisirca,Chapisirca,2
+71503,50301,5030103140,U. E. Nuestra Seoora del Rosario,Pasaje Bolovar?Tarija,19
+80101,50301,5030103159,Unidad Educativa Central Villa Pereira,Villa Pereira,11
+80102,50303,5030303170,U.E. Simon I. Patioo,Avenida Pairumani,16
+80201,50401,5040103186,U.E. Canaon,Municipio Cochabamba Av. Pedro de Toledo entre Calle Juan de la Cruz Monje y Huanchaca,6
+80202,50401,5040103192,Nucleo Escolar Simon Bolivar (Thiomoko),Cleomedes blanco y Atacama,1
+80301,50401,5040103193,Escuela Seccional Waripucara,Waripucara,1
+80302,50401,5040103194,Colegio Pio XII,25 de Mayo entre Punata,9
+80303,50402,5040203203,Escuela Seccional Waripucara,Waripucara,5
+80304,50403,5040303208,Unidad Educativa Maria Emilia Riquelme (Ex Maria Cristina),Av. Cap. Victor Ustariz,13
+80401,50403,5040303221,U.E. Pedro Domingo Murillo,Chiuchi Arriba,11
+80402,50404,5040403232,Nucleo Escolar Ismael Montes,Conda Baja,15
+80501,50404,5040403247,U.E. San Miguel,Av. Ustariz S/N,13
+80601,50405,5040503260,Sede Sindical Yajo Pampa,Comunidad Yajo Pampa,3
+80602,50405,5040503263,U.E. Molle Pampa,Comunidad Molle Pampa,20
+80701,50405,5040503283,Colegio La Salle,Junon y Mayor Rocha,14
+80702,50502,5050203297,Escuela Ladislao Cabrera,Chilicchi,17
+80703,50502,5050203314,U.E. Combuyo,Calle de Combuyo,15
+80801,50702,5070203329,U.E. Ayni Pacha,C. Santa Elena entre Av. Pisiga y C. Innominada ? OTB Alalay Alto Mirador,16
+80802,50702,5070203345,U.E. 14 de Septiembre,Villa 14 de Septiembre,3
+80803,50801,5080103348,Unidad Educativa Chaqui Mayu,Ch Aquimayu,18
+90101,50802,5080203366,U.E. 14 de Septiembre,Villa 14 de Septiembre,17
+90102,50901,5090103383,Escuela Felix Martinez,Av. 31 de Octubre y Av. Mira Flores,8
+90103,50901,5090103391,Unidad Educativa Eje Pampa,Eje Pampa,3
+90104,50902,5090203394,U.E. Cochabamba,Calle Jordon No 236,16
+90201,50902,5090203410,Nucleo Escolar Simon Bolivar (Thiomoko),Cleomedes blanco y Atacama,15
+90202,51001,5100103425,Escuela Ladislao Cabrera,Chilicchi,13
+90203,51101,5110103438,U.E. Zenobio Gallardo,Distrito Ramadas,20
+90301,51102,5110203458,U.E. El Paso A,Zona Central El Paso,13
+90302,51102,5110203471,Unidad Educativa Rosendo Peoa,OTB Urbanizacion PIL Sarcobamba Calle Luis Zegarra entre Luis Montaoo y Jorge Udaeta,5
+90303,51103,5110303476,Colegio Franz Tamayo,Calle Rafael Pavon entre Av,18
+90401,51103,5110303494,U.E. Lacolaconi,Lacolaconi,14
+90402,51201,5120103508,U.E.T.H. Mariscal Sucre,Entre Calle el Deber y Los Andes (entrada por la Av. La Resistencia),14
+90501,51202,5120203522,Unidad Educativa Domingo Savio (Ex Lorenzo Filho),Av. Aniceto Arce Nro 804 entre N. Morales,14
+90502,51202,5120203536,Escuela Melchor Cuadros,Av. Pairumani?Vinto,1
+90503,51203,5120303537,Colegio Pio XII,25 de Mayo entre Punata,5
+,51203,5120303542,U.E. San Adalberto Fe y Alegroa,Zona Cementerio Calle Sucre Final,15
+,51301,5130103557,Unidad Educativa Paracti (Villa Tunari),Paracti(Villa Tunari),13
+,51301,5130103570,Colegio Pedro Ignacio Rivero,Mizque,3
+,51302,5130203573,Colegio La Salle Fiscal,Av. Tiahuanaco Frente a Tronsito,10
+,51302,5130203583,Colegio Pio XII,25 de Mayo entre Punata,14
+,51401,5140103597,U.E. Rodolfo Illanes,Comunidad 16 de Julio Capihuara,5
+,51501,5150103602,Escuela Gualberto Villarroel,Arani,1
+,51501,5150103603,Colegio Pio XII,25 de Mayo entre Punata,4
+,51601,5160103607,Escuela Gualberto Villarroel,Arani,5
+,51601,5160103612,Unidad Educativa Paracti (Villa Tunari),Paracti(Villa Tunari),6
+,51601,5160103618,U.E. Avelino Morida,Zubieta,20
+,60201,6020103638,Unidad Educativa Jatun Pampa,Jatun Pampa,10
+,60201,6020103648,Colegio Evangelico Emanuel,C. Baptista entre C. La Paz y C. J. de la Reza,6
+,60301,6030103654,Escuela Mixta Dr. Martin Cardenas,Mina Asientos,11
+,60301,6030103665,U.E. Rodolfo Illanes,Comunidad 16 de Julio Capihuara,18
+,60301,6030103683,Nucleo Escolar Confital,Confital,13
+,60302,6030203696,U.E. Combuyo,Calle de Combuyo,19
+,60302,6030203715,Unidad Educativa El Sausalito,Santa Rosa (Colcapirhua) c/ Martin Cardenas y Oscar Alfaro,2
+,60302,6030203717,Nucleo Escolar Villa Granado,Villa Granado,20
+,60303,6030303737,Nucleo Escolar Beta Raqay Pampa,Raqay Pampa,19
+,60303,6030303756,Unidad Educ. Eduardo Lopez O E.Don Bosco,Champa Rancho,19
+,60402,6040203775,Nucleo Escolar Laguna Grande,Laguna Grande,1
+,60501,6050103776,U.E. Vilomilla,Vilomilla,9
+,60502,6050203785,U.E. El Mirador,Zona 5 Alto Mirador,12
+,60601,6060103797,Colegio Martin Cardenas,Villa Alalay Av. Siglo Xx y 10 de Noviembre,7
+,70101,7010103804,U.E. Soledad Rivas,OTB Cercado-Vinto,13
+,70101,7010103817,Colegio Mixto Tecnico Hum. Villa Bolivar,Villa Bolivar,20
+,70102,7010203837,Centro Internado Misicuni,Misicuni,4
+,70102,7010203841,Kinder San Joaquon,C. Viloma entre C. Colomi y Av. De la Fuerza Aerea,6
+,70103,7010303847,Escuela Gualberto Villarroel,Arani,13
+,70104,7010403860,Escuela Marton Cardenas,Av. Miguel Mercado Moreira?Vinto,5
+,70104,7010403865,Escuela Dr. Demetrio Canelas,Ayapampa,8
+,70104,7010403873,Escuela Eugenia Ravasco,Av. Esperanza?Rumi Mayu (Tiquipaya),7
+,70202,7020203880,Unidad Educativa Club De Leones,Circunvalacion 375 Enrique Arce,15
+,70302,7030203895,Escuela Eugenia Ravasco,Av. Esperanza?Rumi Mayu (Tiquipaya),18
+,70302,7030203913,Unidad Educativa Eje Pampa,Eje Pampa,13
+,70302,7030203926,Colegio La Salle Fiscal,Av. Tiahuanaco Frente a Tronsito,6
+,70303,7030303932,U.E. 27 de Mayo,Av. Elias Meneses entre Agapito Gamboa y Pasaje Innominada,11
+,70303,7030303943,U.E. 27 de Mayo,Av. Elias Meneses entre Agapito Gamboa y Pasaje Innominada,16
+,70401,7040103959,Unidad Educativa Central Villa Pereira,Villa Pereira,9
+,70402,7040203968,Unidad Educativa 14 de Septiembre,Calle Francisco Suarez entre Rigoberto Sains y Cesar Achaval,8
+,70402,7040203976,Unidad Educativa Jose Ignacio Sanjines,Final D? Orbigni Oeste Serca a La Laguna Cooa Cooa,20
+,70402,7040203996,Unidad Educativa 14 de Septiembre,Calle Francisco Suarez entre Rigoberto Sains y Cesar Achaval,19
+,70402,7040204015,U.E. Tocnico Humanostico San Rafael,Av. Los Molles lado Sud Posgrado Agronomia UMSS.,14
+,70404,7040404029,U.E. Jose Nabo Quintana Navia,Calle Cochabamba frente a la capilla Virgen de Guadalupe,17
+,70404,7040404046,Unidad Educativa Nataniel Aguirre,Av Benemeritos del Chaco y Calle Walter Rocha,18
+,70404,7040404064,Unidad Educativa Aniceto Arce,San Miguel de Aquerani,4
+,70404,7040404068,Unidad Educativa Chaqui Mayu,Ch Aquimayu,16
+,70501,7050104084,Escuela Ismael Montes,La Chulla,8
+,70501,7050104092,Unidad Educativa Chaqui Mayu,Ch Aquimayu,20
+,70501,7050104112,Unidad Educativa Atiy,Por San Isidro,8
+,70501,7050104120,Unidad Educativa 1ro de Mayo,Primero de Mayo,3
+,70502,7050204123,Sede Comunal Kalliri,Calliri,9
+,70503,7050304132,U.E. San Miguel,Av. Ustariz S/N,20
+,70601,7060104152,Sede Sindical De Chahuarani Chico,En la Sede de Chahuarani Chico,11
+,70601,7060104163,Unidad Educativa Lagarpampa,Lagarpampa,9
+,70601,7060104172,Colegio Martin Cardenas,Villa Alalay Av. Siglo Xx y 10 de Noviembre,17
+,70602,7060204189,Unidad Educativa Villa Nueva,Norte Galilea,17
+,70603,7060304206,U.E. Bolivia Japon Tarde,Calle Santa Lucia entre Av. Santo Domingo y calle Nuestra Sra. de Lourdes,12
+,70603,7060304218,Escuela Gualberto Villarroel,Arani,19
+,70603,7060304237,Centro Integral Nioo Jesus Fe y Alegria,Calle 4 y Miraflores,5
+,70701,7070104242,Colegio La Salle Fiscal,Av. Tiahuanaco Frente a Tronsito,2
+,70702,7070204244,U.E. San Adalberto Fe y Alegroa,Zona Cementerio Calle Sucre Final,7
+,70702,7070204251,U.E. Carmen Rosa Salguero,Calle Miguel Mercado Moreira esq. Circunvalacion,12
+,70703,7070304263,U.E. Guillermo Urquidi,Av. Humboldt entre Av. Victor Ustariz y Av. Blanco Galindo,11
+,70703,7070304274,(Corcel) Penitenciaria San Antonio,Av. Ayacucho Frente a La Terminal,17
+,70703,7070304291,Unidad Educativa Lagarpampa,Lagarpampa,15
+,70704,7070404306,Escuela Monseoor Angel Gelmi,Tita Gallo,14
+,70704,7070404320,U.E. Tocnico Humanostico San Rafael,Av. Los Molles lado Sud Posgrado Agronomia UMSS.,10
+,70705,7070504330,U.E. El Paso A,Zona Central El Paso,18
+,70706,7070604348,Sede Social de La O.T.B. Martin Cardenas (Ex Complejo El Carmen),Rumi Mayu (Colcapirhua),12
+,70707,7070704360,U. E. Nuestra Seoora del Rosario,Pasaje Bolovar?Tarija,4
+,70707,7070704364,Escuela Melchor Cuadros,Av. Pairumani?Vinto,1
+,70801,7080104365,U.E. Arani,Arani,14
+,70802,7080204379,Unidad Educativa Club De Leones,Circunvalacion 375 Enrique Arce,20
+,70802,7080204399,Unidad Educativa Panama,Panamo,19
+,70802,7080204418,U.E. Ana Maroa Romero de Campero,Villa Victoria,5
+,70803,7080304423,U.E. Rumy Corral,Comunidad Rumy Corral Centro,8
+,70804,7080404431,Sede Social de La O.T.B. Martin Cardenas (Ex Complejo El Carmen),Rumi Mayu (Colcapirhua),19
+,70804,7080404450,Unidad Educativa 14 de Septiembre,Calle Francisco Suarez entre Rigoberto Sains y Cesar Achaval,5
+,70804,7080404455,Unidad Educativa Simon Bolivar (Sumunpaya),Zona Sumunpuya Sud,2
+,70804,7080404457,Unidad Educativa 1ro de Mayo,Primero de Mayo,20
+,70805,7080504477,Colegio Aleman Santa Maria,Antezana y Colombia,2
+,70901,7090104479,U.E. San Francisco Javier,Zona Alto Buena Vista OTB ISIDRO,10
+,70902,7090204489,U.E. 27 de Mayo,Av. Elias Meneses entre Agapito Gamboa y Pasaje Innominada,7
+,70902,7090204496,U.E. Ana Maroa Romero de Campero,Villa Victoria,5
+,70902,7090204501,U.E. Arasaya,Arasaya,2
+,70903,7090304503,U.E. Rumy Corral,Comunidad Rumy Corral Centro,9
+,70904,7090404512,Nucleo Escolar Ismael Montes,Conda Baja,11
+,71001,7100104523,Escuela La Estrella (San Gabriel),San Gabriel,18
+,71002,7100204541,Escuela Manuel De Ugarte,Aiquile,9
+,71003,7100304550,U.E. San Antonio,Comunidad San Antonio,11
+,71003,7100304561,U.E. 14 de Septiembre,Villa 14 de Septiembre,10
+,71004,7100404571,Unidad Educativa Iglesiani,Iglesiani,19
+,71005,7100504590,Unidad Educativa Central Villa Pereira,Villa Pereira,15
+,71005,7100504605,Unidad Educativa Prof. Oscar Rojas Caballero,Rio Yacuma y Prolongacion Rio Caine,2
+,71101,7110104607,Escuela Vicente Donoso (Aguas Calientes),Aguas Calientes,20
+,71101,7110104627,U.E. Canaon,Municipio Cochabamba Av. Pedro de Toledo entre Calle Juan de la Cruz Monje y Huanchaca,14
+,71102,7110204641,U.E. 14 de Septiembre,Barrio Molle Aguada,13
+,71103,7110304654,U.E. Rodolfo Illanes,Comunidad 16 de Julio Capihuara,14
+,71104,7110404668,U.E. ADRA Juan XXIII,Calle Agramont francisco cano,2
+,71105,7110504670,Unidad Educativa Estanzuela,Estanzuela,18
+,71106,7110604688,Colegio San Francisco (Villa Pagador),Villa Sebastian Pagador C/Riobamba y Morochata,14
+,71106,7110604702,Unidad Educativa Cauta,Cauta,15
+,71301,7130104717,U.E. Avelino Morida,Zubieta,9
+,71302,7130204726,U.E. Cochabamba,Calle Jordon No 236,19
+,71302,7130204745,Unidad Educativa Ramadas,La Ramada,10
+,71302,7130204755,Unidad Educativa Estados Unidos,Isiboro y Todos Santos,16
+,71401,7140104771,Sede Sindical Yajo Pampa,Comunidad Yajo Pampa,9
+,71401,7140104780,Unidad Educativa Jatun Pampa,Jatun Pampa,7
+,71402,7140204787,Colegio Fe y Alegria,Chipiriri,13
+,71403,7140304800,U.E. Simon Bolivar,Calle Sucre a lado del Cementerio General,1
+,71501,7150104801,Escuela San Jose (V. Tunari),San Jose,16
+,71501,7150104817,Nucleo Escolar Beta Raqay Pampa,Raqay Pampa,11
+,71502,7150204828,U.E. Pedro Domingo Murillo,Chiuchi Arriba,17
+,71502,7150204845,U. E. Titos Linde,Av. Malteria C/ Innominada a una cuadra y media del Instituto Oncologico Nacional,9
+,71503,7150304854,Unidad Educ. Eduardo Lopez O E.Don Bosco,Champa Rancho,18
+,71503,7150304872,Unidad Educativa Club De Leones,Circunvalacion 375 Enrique Arce,7
+,80101,8010104879,Colegio Padre Andros Cuschieri,Calle Kanaut S/N,11
+,80101,8010104890,Unidad Educativa Hno Pacifico Feletti,Villa 1o de Mayo,10
+,80201,8020104900,U.E. Zenobio Gallardo,Distrito Ramadas,18
+,80201,8020104918,Escuela Ismael Montes,La Chulla,8
+,80301,8030104926,Colegio Ismael Montes O Luis Espinal,Cerro Verde-Martin Fierro y Yawar Mallku,7
+,80301,8030104933,U.E. Prof. Jaime Alfonso Escalante Gutierrez,Barrio Magisterio Las Delicias,1
+,80302,8030204934,Escuela Felix Martinez,Av. 31 de Octubre y Av. Mira Flores,18
+,80302,8030204952,Sede Social de OTB Cerro San Miguel Alto,Calle Ayllu esquina calle Bonifacio,12
+,80302,8030204964,Unidad Educativa Ibuelo,Ibuelo,14
+,80303,8030304978,Colegio Abaroa,Av. Ayacucho y Santivaoez,2
+,80303,8030304980,Colegio Aleman Santa Maria,Antezana y Colombia,14
+,80304,8030404994,U.E. 14 de Septiembre,Villa 14 de Septiembre,18
+,80401,8040105012,(Corcel) Penitenciaria San Sebastian Mujeres,Plaz. San Sebastion Acera Oeste,10
+,80401,8040105022,Instituto Particular Quillacollo,Calle Gral. Pando entre Santa Cruz y Beni,12
+,80402,8040205034,U.E. Padresama,Se encuentra sobre la carretera cochabamba a Santa Cruz km 150,12
+,80501,8050105046,Unidad Educativa 1ro de Mayo,Primero de Mayo,8
+,80501,8050105054,Nucleo Escolar Beta Raqay Pampa,Raqay Pampa,13
+,80601,8060105067,(Corcel) Penitenciaria San Antonio,Av. Ayacucho Frente a La Terminal,15
+,80602,8060205082,U.E. Avelino Morida,Zubieta,3
+,80701,8070105085,Unidad Educativa Maria Emilia Riquelme (Ex Maria Cristina),Av. Cap. Victor Ustariz,12
+,80702,8070205097,Nucleo Educativo Chapisirca,Chapisirca,11
+,80703,8070305108,Unidad Educativa Rosendo Peoa,OTB Urbanizacion PIL Sarcobamba Calle Luis Zegarra entre Luis Montaoo y Jorge Udaeta,18
+,80703,8070305126,Unidad Educativa Jesus Maestro,Zona Chiquicollo,6
+,80703,8070305132,Escuela Manuel De Ugarte,Aiquile,2
+,80801,8080105134,Colegio Martin Cardenas,Villa Alalay Av. Siglo Xx y 10 de Noviembre,11
+,80801,8080105145,U.E. Ayni Pacha,C. Santa Elena entre Av. Pisiga y C. Innominada ? OTB Alalay Alto Mirador,10
+,80803,8080305155,U.E. Adolfo Mercado,Tacopaya,20
+,90101,9010105175,U.E. San Francisco Javier,Zona Alto Buena Vista OTB ISIDRO,15
+,90101,9010105190,U.E. Lacolaconi,Lacolaconi,3
+,90102,9010205193,U.E. 5 de Septiembre,OTB 21 de Septiembre?Calle Tte. Benavides,3
+,90201,9020105196,Colegio Martin Cardenas,Villa Alalay Av. Siglo Xx y 10 de Noviembre,7
+,90201,9020105203,Unidad Educativa Villa Nueva,Norte Galilea,2
+,90201,9020105205,Unidad Educativa Chaqui Mayu,Ch Aquimayu,7
+,90202,9020205212,U.E. Genoveva Roos,Calle Los Robles entre Av. Segunda Circunvalacion y Calle Sofocles,6
+,90301,9030105218,Unidad Educativa Aniceto Arce,San Miguel de Aquerani,14
+,90303,9030305232,Colegio San Francisco (Villa Pagador),Villa Sebastian Pagador C/Riobamba y Morochata,13
+,90303,9030305245,Unidad Educativa Aniceto Arce,San Miguel de Aquerani,20
+,90303,9030305265,U.E. Carmen Rosa Salguero,Calle Miguel Mercado Moreira esq. Circunvalacion,3
+,90401,9040105268,Unidad Educativa Villa Nueva,Norte Galilea,9
+,90401,9040105277,(Corcel) Penitenciaria San Antonio,Av. Ayacucho Frente a La Terminal,16
+,90402,9040205293,U.E. Tocnico Humanostico San Rafael,Av. Los Molles lado Sud Posgrado Agronomia UMSS.,17
+,90501,9050105310,Sede Social Sombrerito,Sindicato Agrarario Sombrerito? Carretera Troncal Cochabamba Mizque,9
+,90501,9050105319,Unidad Educativa Santiago,Achandara y Calle Imnominada,5
+,90502,9050205324,U.E. Joso Carlos Carrillo,Comunidad Tirani?Final Av. Atahuallpa segunda circunvalacion,11
+,90503,9050305335,U.E. Zenobio Gallardo,Distrito Ramadas,17
+,80602,8060205037,Sede Social de La O.T.B. Martin Cardenas (Ex Complejo El Carmen),Rumi Mayu (Colcapirhua),16
+,80602,8060205053,Sede Social de OTB Cerro San Miguel Alto,Calle Ayllu esquina calle Bonifacio,12
+,80701,8070105065,Unidad Educativa Panama,Panamo,1
+,80702,8070205066,Nucleo Joso Claure (U. E. San Vicente),San Vicente,4
+,80702,8070205070,U.E. Carmen Rosa Salguero,Calle Miguel Mercado Moreira esq. Circunvalacion,16
+,80702,8070205086,U.E. Lacolaconi,Lacolaconi,19
+,80703,8070305105,U.E. Simon I. Patioo,Avenida Pairumani,11
+,80703,8070305116,Escuela Seccional Waripucara,Waripucara,18
+,80703,8070305134,Unidad Educativa Maria Emilia Riquelme (Ex Maria Cristina),Av. Cap. Victor Ustariz,14
+,80801,8080105148,Instituto Tecnologico El Paso,Avenida Elias Meneces,13
+,80801,8080105161,Unidad Educativa David Arzabe,Vinto,20
+,80801,8080105181,U.E. Nuestra Seoora de la Merced A,Av. Capiton Voctor Ustariz entre calle Sir Roonald Ross y Calle Antenor de la V?a Garcia,11
+,80802,8080205192,Unidad Educativa Estanzuela,Estanzuela,4
+,80803,8080305196,Colegio San Francisco (Villa Pagador),Villa Sebastian Pagador C/Riobamba y Morochata,13
+,80803,8080305209,Sede Social Sombrerito,Sindicato Agrarario Sombrerito? Carretera Troncal Cochabamba Mizque,2
+,90101,9010105211,U.E. Ana Maroa Romero de Campero,Villa Victoria,12
+,90102,9010205223,Escuela Simon Rodriguez,Aiquile,4
+,90103,9010305227,Unidad Educativa Hno Pacifico Feletti,Villa 1o de Mayo,12
+,90103,9010305239,Unidad Educativa Chaqui Mayu,Ch Aquimayu,10
+,90104,9010405249,Colegio San Miguel (Tiquipaya),C/T. Torrico?C.Beni,16
+,90201,9020105265,Instituto Tecnologico El Paso,Avenida Elias Meneces,11
+,90203,9020305276,U.E. Bartolina Sisa,Calle Innominada,18
+,90203,9020305294,Unidad Educativa Chaqui Mayu,Ch Aquimayu,17
+,90301,9030105311,U.E. El Paso A,Zona Central El Paso,5
+,90301,9030105316,Unidad Educativa Jatun Pampa,Jatun Pampa,8
+,90302,9030205324,U.E. Ana Maroa Romero de Campero,Villa Victoria,9
+,90303,9030305333,Unidad Educativa Huanacuni Grande,Huanacuni Chico,14
+,90303,9030305347,Unidad Educativa Ramadas,La Ramada,5
+,90401,9040105352,Escuela Bolivar,Ayacucho y Punata,4
+,90402,9040205356,U.E. Rumy Corral,Comunidad Rumy Corral Centro,3
+,90402,9040205359,Colegio Pio XII,25 de Mayo entre Punata,14
+,90502,9050205373,U.E. 14 de Septiembre,Villa 14 de Septiembre,5
+,90503,9050305378,U.E. Arasaya,Arasaya,16
+,90503,9050305394,U.E. Simon I. Patioo,Avenida Pairumani,3

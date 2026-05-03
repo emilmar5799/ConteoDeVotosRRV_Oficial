@@ -1,0 +1,341 @@
+CodigoTerritorial,Departamento,Municipio,Provincia
+10101,Chuquisaca,Oropeza,Sucre
+10102,Chuquisaca,Oropeza,Yotala
+10103,Chuquisaca,Oropeza,Poroma
+10201,Chuquisaca,Azurduy,Azurduy
+10202,Chuquisaca,Azurduy,Tarvita
+10301,Chuquisaca,Zudáñez,Villa Zudáñez
+10302,Chuquisaca,Zudáñez,Presto
+10303,Chuquisaca,Zudáñez,Villa Mojocoya
+10304,Chuquisaca,Zudáñez,Icla
+10401,Chuquisaca,Tomina,Padilla
+10402,Chuquisaca,Tomina,Tomina
+10403,Chuquisaca,Tomina,Sopachuy
+10404,Chuquisaca,Tomina,Villa Alcalá
+10405,Chuquisaca,Tomina,El Villar
+10501,Chuquisaca,Hernando Siles,Monteagudo
+10502,Chuquisaca,Hernando Siles,Huacareta
+10601,Chuquisaca,Yamparáez,Tarabuco
+10602,Chuquisaca,Yamparáez,Yamparáez
+10701,Chuquisaca,Nor Cinti,Camargo
+10702,Chuquisaca,Nor Cinti,San Lucas
+10703,Chuquisaca,Nor Cinti,Incahuasi
+10704,Chuquisaca,Nor Cinti,Villa Charcas
+10801,Chuquisaca,Belisario Boeto,Villa Serrano
+10901,Chuquisaca,Sud Cinti,Villa Abecia
+10902,Chuquisaca,Sud Cinti,Culpina
+10903,Chuquisaca,Sud Cinti,Las Carreras
+11001,Chuquisaca,Luis Calvo,Villa Vaca Guzmán (Muyupampa)
+11002,Chuquisaca,Luis Calvo,Huacaya
+11003,Chuquisaca,Luis Calvo,Macharetí
+20101,La Paz,Murillo,La Paz
+20102,La Paz,Murillo,Palca
+20103,La Paz,Murillo,Mecapaca
+20104,La Paz,Murillo,Achocalla
+20105,La Paz,Murillo,El Alto
+20201,La Paz,Omasuyos,Achacachi
+20202,La Paz,Omasuyos,Ancoraimes
+20203,La Paz,Omasuyos,Chua Cocani
+20204,La Paz,Omasuyos,Huarina
+20205,La Paz,Omasuyos,Santiago de Huata
+20206,La Paz,Omasuyos,Huatajata
+20301,La Paz,Pacajes,Coro Coro
+20302,La Paz,Pacajes,Caquiaviri
+20303,La Paz,Pacajes,Calacoto
+20304,La Paz,Pacajes,Comanche
+20305,La Paz,Pacajes,Charaña
+20306,La Paz,Pacajes,Waldo Ballivián
+20307,La Paz,Pacajes,Nazacara de Pacajes
+20308,La Paz,Pacajes,Callapa
+20401,La Paz,Camacho,Puerto Acosta
+20402,La Paz,Camacho,Mocomoco
+20403,La Paz,Camacho,Puerto Carabuco
+20404,La Paz,Camacho,Humanata
+20405,La Paz,Camacho,Escoma
+20501,La Paz,Muñecas,Chuma
+20502,La Paz,Muñecas,Ayata
+20503,La Paz,Muñecas,Aucapata
+20601,La Paz,Larecaja,Sorata
+20602,La Paz,Larecaja,Guanay
+20603,La Paz,Larecaja,Tacacoma
+20604,La Paz,Larecaja,Quiabaya
+20605,La Paz,Larecaja,Combaya
+20606,La Paz,Larecaja,Tipuani
+20607,La Paz,Larecaja,Mapiri
+20608,La Paz,Larecaja,Teoponte
+20701,La Paz,Franz Tamayo,Apolo
+20702,La Paz,Franz Tamayo,Pelechuco
+20801,La Paz,Ingavi,Viacha
+20802,La Paz,Ingavi,Guaqui
+20803,La Paz,Ingavi,Tiahuanaco
+20804,La Paz,Ingavi,Desaguadero
+20805,La Paz,Ingavi,San Andrés de Machaca
+20806,La Paz,Ingavi,Jesús de Machaca
+20807,La Paz,Ingavi,Taraco
+20901,La Paz,Loayza,Luribay
+20902,La Paz,Loayza,Sapahaqui
+20903,La Paz,Loayza,Yaco
+20904,La Paz,Loayza,Malla
+20905,La Paz,Loayza,Cairoma
+21001,La Paz,Inquisivi,Inquisivi
+21002,La Paz,Inquisivi,Quime
+21003,La Paz,Inquisivi,Cajuata
+21004,La Paz,Inquisivi,Colquiri
+21005,La Paz,Inquisivi,Ichoca
+21006,La Paz,Inquisivi,Licoma Pampa
+21101,La Paz,Sud Yungas,Chulumani
+21102,La Paz,Sud Yungas,Irupana
+21103,La Paz,Sud Yungas,Yanacachi
+21104,La Paz,Sud Yungas,Palos Blancos
+21105,La Paz,Sud Yungas,La Asunta
+21201,La Paz,Los Andes,Pucarani
+21202,La Paz,Los Andes,Laja
+21203,La Paz,Los Andes,Batallas
+21204,La Paz,Los Andes,Puerto Pérez
+21301,La Paz,Aroma,Sica Sica
+21302,La Paz,Aroma,Umala
+21303,La Paz,Aroma,Ayo Ayo
+21304,La Paz,Aroma,Calamarca
+21305,La Paz,Aroma,Patacamaya
+21306,La Paz,Aroma,Colquencha
+21307,La Paz,Aroma,Collana
+21401,La Paz,Nor Yungas,Coroico
+21402,La Paz,Nor Yungas,Coripata
+21501,La Paz,Iturralde,Ixiamas
+21502,La Paz,Iturralde,San Buenaventura
+21601,La Paz,Bautista Saavedra,Charazani
+21602,La Paz,Bautista Saavedra,Curva
+21701,La Paz,Manco Kapac,Copacabana
+21702,La Paz,Manco Kapac,San Pedro de Tiquina
+21703,La Paz,Manco Kapac,Tito Yupanqui
+21801,La Paz,Gualberto Villarroel,San Pedro de Curahuara
+21802,La Paz,Gualberto Villarroel,Papel Pampa
+21803,La Paz,Gualberto Villarroel,Chacarilla
+21901,La Paz,General José Manuel Pando,Santiago de Machaca
+21902,La Paz,General José Manuel Pando,Catacora
+22001,La Paz,Caranavi,Caranavi
+22002,La Paz,Caranavi,Alto Beni
+30101,Cochabamba,Cercado,Cochabamba
+30201,Cochabamba,Campero,Aiquile
+30202,Cochabamba,Campero,Pasorapa
+30203,Cochabamba,Campero,Omereque
+30301,Cochabamba,Ayopaya,Independencia
+30302,Cochabamba,Ayopaya,Morochata
+30303,Cochabamba,Ayopaya,Cocapata
+30401,Cochabamba,Esteban Arze,Tarata
+30402,Cochabamba,Esteban Arze,Anzaldo
+30403,Cochabamba,Esteban Arze,Arbieto
+30404,Cochabamba,Esteban Arze,Sacabamba
+30501,Cochabamba,Arani,Arani
+30502,Cochabamba,Arani,Vacas
+30601,Cochabamba,Arque,Arque
+30602,Cochabamba,Arque,Tacopaya
+30701,Cochabamba,Capinota,Capinota
+30702,Cochabamba,Capinota,Santiváñez
+30703,Cochabamba,Capinota,Sicaya
+30801,Cochabamba,Germán Jordán,Cliza
+30802,Cochabamba,Germán Jordán,Toco
+30803,Cochabamba,Germán Jordán,Tolata
+30901,Cochabamba,Quillacollo,Quillacollo
+30902,Cochabamba,Quillacollo,Sipe Sipe
+30903,Cochabamba,Quillacollo,Tiquipaya
+30904,Cochabamba,Quillacollo,Vinto
+30905,Cochabamba,Quillacollo,Colcapirhua
+31001,Cochabamba,Chapare,Sacaba
+31002,Cochabamba,Chapare,Colomi
+31003,Cochabamba,Chapare,Villa Tunari
+31101,Cochabamba,Tapacarí,Tapacarí
+31201,Cochabamba,Carrasco,Totora
+31202,Cochabamba,Carrasco,Pojo
+31203,Cochabamba,Carrasco,Pocona
+31204,Cochabamba,Carrasco,Chimoré
+31205,Cochabamba,Carrasco,Puerto Villarroel
+31206,Cochabamba,Carrasco,Entre Ríos
+31301,Cochabamba,Mizque,Mizque
+31302,Cochabamba,Mizque,Vila Vila
+31303,Cochabamba,Mizque,Alalay
+31401,Cochabamba,Punata,Punata
+31402,Cochabamba,Punata,Villa Rivero
+31403,Cochabamba,Punata,San Benito
+31404,Cochabamba,Punata,Tacachi
+31405,Cochabamba,Punata,Cuchumuela
+31501,Cochabamba,Bolívar,Bolívar
+31601,Cochabamba,Tiraque,Tiraque
+31602,Cochabamba,Tiraque,Shinahota
+40101,Oruro,Cercado,Oruro
+40102,Oruro,Cercado,Caracollo
+40103,Oruro,Cercado,El Choro
+40104,Oruro,Cercado,Paria
+40201,Oruro,Abaroa,Challapata
+40202,Oruro,Abaroa,Quillacas
+40301,Oruro,Carangas,Corque
+40302,Oruro,Carangas,Choquecota
+40401,Oruro,Sajama,Curahuara de Carangas
+40402,Oruro,Sajama,Turco
+40501,Oruro,Litoral,Huachacalla
+40502,Oruro,Litoral,Escara
+40503,Oruro,Litoral,Cruz de Machacamarca
+40504,Oruro,Litoral,Yunguyo de Litoral
+40505,Oruro,Litoral,Esmeralda
+40601,Oruro,Poopó,Poopó
+40602,Oruro,Poopó,Pazña
+40603,Oruro,Poopó,Antequera
+40701,Oruro,Dalence,Huanuni
+40702,Oruro,Dalence,Machacamarca
+40801,Oruro,Ladislao Cabrera,Salinas de Garci Mendoza
+40802,Oruro,Ladislao Cabrera,Pampa Aullagas
+40901,Oruro,Sabaya,Sabaya
+40902,Oruro,Sabaya,Coipasa
+40903,Oruro,Sabaya,Chipaya
+41001,Oruro,Saucarí,Toledo
+41101,Oruro,Tomás Barrón,Eucaliptus
+41201,Oruro,Sud Carangas,Santiago de Andamarca
+41202,Oruro,Sud Carangas,Belén de Andamarca
+41301,Oruro,San Pedro de Totora,Totora
+41401,Oruro,Sebastián Pagador,Santiago de Huari
+41501,Oruro,Mejillones,La Rivera
+41502,Oruro,Mejillones,Todos Santos
+41503,Oruro,Mejillones,Carangas
+41601,Oruro,Nor Carangas,Huayllamarca
+50101,Potosí,Tomás Frías,Potosí
+50102,Potosí,Tomás Frías,Tinguipaya
+50103,Potosí,Tomás Frías,Yocalla
+50104,Potosí,Tomás Frías,Urmiri
+50201,Potosí,Rafael Bustillo,Uncía
+50202,Potosí,Rafael Bustillo,Chayanta
+50203,Potosí,Rafael Bustillo,Llallagua
+50204,Potosí,Rafael Bustillo,Chuquihuta
+50301,Potosí,Cornelio Saavedra,Betanzos
+50302,Potosí,Cornelio Saavedra,Chaquí
+50303,Potosí,Cornelio Saavedra,Tacobamba
+50401,Potosí,Chayanta,Colquechaca
+50402,Potosí,Chayanta,Ravelo
+50403,Potosí,Chayanta,Pocoata
+50404,Potosí,Chayanta,Ocurí
+50405,Potosí,Chayanta,San Pedro de Macha
+50501,Potosí,Charcas,San Pedro de Buena Vista
+50502,Potosí,Charcas,Toro Toro
+50601,Potosí,Nor Chichas,Cotagaita
+50602,Potosí,Nor Chichas,Vitichi
+50701,Potosí,Alonso de Ibáñez,Sacaca
+50702,Potosí,Alonso de Ibáñez,Caripuyo
+50801,Potosí,Sud Chichas,Tupiza
+50802,Potosí,Sud Chichas,Atocha
+50901,Potosí,Nor Lípez,Colcha K
+50902,Potosí,Nor Lípez,San Pedro de Quemes
+51001,Potosí,Sud Lípez,San Pablo de Lípez
+51002,Potosí,Sud Lípez,Mojinete
+51003,Potosí,Sud Lípez,San Antonio de Esmoruco
+51101,Potosí,Linares,Puna
+51102,Potosí,Linares,Caiza D
+51103,Potosí,Linares,Ckochas
+51201,Potosí,Quijarro,Uyuni
+51202,Potosí,Quijarro,Tomave
+51203,Potosí,Quijarro,Porco
+51301,Potosí,General Bilbao,Arampampa
+51302,Potosí,General Bilbao,Acasio
+51401,Potosí,Daniel Campos,Llica
+51402,Potosí,Daniel Campos,Tahua
+51501,Potosí,Modesto Omiste,Villazón
+51601,Potosí,Enrique Baldivieso,San Agustín
+60101,Tarija,Cercado,Tarija
+60201,Tarija,Arce,Padcaya
+60202,Tarija,Arce,Bermejo
+60301,Tarija,Gran Chaco,Yacuiba
+60302,Tarija,Gran Chaco,Caraparí
+60303,Tarija,Gran Chaco,Villa Montes
+60401,Tarija,José María Avilés,Uriondo
+60402,Tarija,José María Avilés,Yunchará
+60501,Tarija,Méndez,San Lorenzo
+60502,Tarija,Méndez,El Puente
+60601,Tarija,O'Connor,Entre Ríos
+70101,Santa Cruz,Andrés Ibáñez,Santa Cruz de la Sierra
+70102,Santa Cruz,Andrés Ibáñez,Cotoca
+70103,Santa Cruz,Andrés Ibáñez,Porongo
+70104,Santa Cruz,Andrés Ibáñez,La Guardia
+70105,Santa Cruz,Andrés Ibáñez,El Torno
+70201,Santa Cruz,Warnes,Warnes
+70202,Santa Cruz,Warnes,Okinawa Uno
+70301,Santa Cruz,Velasco,San Ignacio de Velasco
+70302,Santa Cruz,Velasco,San Miguel de Velasco
+70303,Santa Cruz,Velasco,San Rafael de Velasco
+70401,Santa Cruz,Ichilo,Buena Vista
+70402,Santa Cruz,Ichilo,San Carlos
+70403,Santa Cruz,Ichilo,Villa Yapacaní
+70404,Santa Cruz,Ichilo,San Juan de Yapacaní
+70501,Santa Cruz,Chiquitos,San José de Chiquitos
+70502,Santa Cruz,Chiquitos,Pailón
+70503,Santa Cruz,Chiquitos,Roboré
+70601,Santa Cruz,Sara,Portachuelo
+70602,Santa Cruz,Sara,Santa Rosa del Sara
+70603,Santa Cruz,Sara,Colpa Bélgica
+70701,Santa Cruz,Cordillera,Lagunillas
+70702,Santa Cruz,Cordillera,Charagua
+70703,Santa Cruz,Cordillera,Cabezas
+70704,Santa Cruz,Cordillera,Cuevo
+70705,Santa Cruz,Cordillera,Gutiérrez (Kereimba Iyambae)
+70706,Santa Cruz,Cordillera,Camiri
+70707,Santa Cruz,Cordillera,Boyuibe
+70801,Santa Cruz,Vallegrande,Vallegrande
+70802,Santa Cruz,Vallegrande,El Trigal
+70803,Santa Cruz,Vallegrande,Moro Moro
+70804,Santa Cruz,Vallegrande,Postrervalle
+70805,Santa Cruz,Vallegrande,Pucará
+70901,Santa Cruz,Florida,Samaipata
+70902,Santa Cruz,Florida,Pampagrande
+70903,Santa Cruz,Florida,Mairana
+70904,Santa Cruz,Florida,Quirusillas
+71001,Santa Cruz,Obispo Santistevan,Montero
+71002,Santa Cruz,Obispo Santistevan,General Saavedra
+71003,Santa Cruz,Obispo Santistevan,Mineros
+71004,Santa Cruz,Obispo Santistevan,Fernández Alonso
+71005,Santa Cruz,Obispo Santistevan,San Pedro
+71101,Santa Cruz,Ñuflo de Chaves,Concepción
+71102,Santa Cruz,Ñuflo de Chaves,San Javier
+71103,Santa Cruz,Ñuflo de Chaves,San Julián
+71104,Santa Cruz,Ñuflo de Chaves,San Ramón
+71105,Santa Cruz,Ñuflo de Chaves,San Antonio de Lomerío
+71106,Santa Cruz,Ñuflo de Chaves,Cuatro Cañadas
+71201,Santa Cruz,Ángel Sandóval,San Matías
+71301,Santa Cruz,Caballero,Comarapa
+71302,Santa Cruz,Caballero,Saipina
+71401,Santa Cruz,Germán Busch,Puerto Suárez
+71402,Santa Cruz,Germán Busch,Puerto Quijarro
+71403,Santa Cruz,Germán Busch,El Carmen Rivero Tórrez
+71501,Santa Cruz,Guarayos,Ascensión de Guarayos
+71502,Santa Cruz,Guarayos,Urubichá
+71503,Santa Cruz,Guarayos,El Puente
+80101,Beni,Cercado,Trinidad
+80102,Beni,Cercado,San Javier
+80201,Beni,Vaca Díez,Riberalta
+80202,Beni,Vaca Díez,Guayaramerín
+80301,Beni,General José Ballivián,Reyes
+80302,Beni,General José Ballivián,San Borja
+80303,Beni,General José Ballivián,Santa Rosa
+80304,Beni,General José Ballivián,Rurrenabaque
+80401,Beni,Yacuma,Santa Ana del Yacuma
+80402,Beni,Yacuma,Exaltación
+80501,Beni,Moxos,San Ignacio de Moxos
+80601,Beni,Marbán,Loreto
+80602,Beni,Marbán,San Andrés
+80701,Beni,Mamoré,San Joaquín
+80702,Beni,Mamoré,San Ramón
+80703,Beni,Mamoré,Puerto Siles
+80801,Beni,Iténez,Magdalena
+80802,Beni,Iténez,Baures
+80803,Beni,Iténez,Huacaraje
+90101,Pando,Nicolás Suárez,Cobija
+90102,Pando,Nicolás Suárez,Porvenir
+90103,Pando,Nicolás Suárez,Bolpebra
+90104,Pando,Nicolás Suárez,Bella Flor
+90201,Pando,Manuripi,Puerto Rico
+90202,Pando,Manuripi,San Pedro
+90203,Pando,Manuripi,Filadelfia
+90301,Pando,Madre de Dios,Puerto Gonzalo Moreno
+90302,Pando,Madre de Dios,San Lorenzo
+90303,Pando,Madre de Dios,Sena
+90401,Pando,Abuná,Santa Rosa del Abuná
+90402,Pando,Abuná,Ingavi
+90501,Pando,General Federico Román,Nueva Esperanza
+90502,Pando,General Federico Román,Villa Nueva
+90503,Pando,General Federico Román,Santos Mercado
