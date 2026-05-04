@@ -1,6 +1,9 @@
 package main
 
 import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"os"
@@ -8,7 +11,12 @@ import (
 	"strings"
 	"time"
 
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+
+	"rrv-backend/internal/config"
 	"rrv-backend/internal/models"
+	"rrv-backend/internal/repository"
 	"rrv-backend/internal/service"
 )
 
@@ -103,6 +111,28 @@ func main() {
 	parser := service.NewActaParser()
 	actaService := service.NewActaService()
 
+	// ═══ Conexión a MongoDB ═══
+	fmt.Println("[INIT] Conectando a MongoDB...")
+	cfg := config.LoadConfig()
+	mongoClient, err := mongo.Connect(context.Background(), options.Client().ApplyURI(cfg.MongoURI))
+	if err != nil {
+		log.Fatalf("[ERROR] No se pudo conectar a MongoDB: %v", err)
+	}
+	pingCtx, pingCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	if err := mongoClient.Ping(pingCtx, nil); err != nil {
+		pingCancel()
+		log.Fatalf("[ERROR] MongoDB no responde: %v", err)
+	}
+	pingCancel()
+	defer mongoClient.Disconnect(context.Background())
+	db := mongoClient.Database(cfg.MongoDB)
+
+	actaRepo := repository.NewActaRepository(db)
+	inconsistenciaRepo := repository.NewInconsistenciaRepository(db)
+	referenciaRepo := repository.NewReferenciaRepository(db)
+	inconsistenciaService := service.NewInconsistenciaService(inconsistenciaRepo, referenciaRepo, actaRepo)
+	fmt.Printf("[OK] Conectado a MongoDB: %s\n", cfg.MongoDB)
+
 	// Buscar todos los PDFs
 	pdfs, err := filepath.Glob(filepath.Join(pdfDir, "*.pdf"))
 	if err != nil {
@@ -131,6 +161,7 @@ func main() {
 	var exitosas, conErrores, anuladas, observadas, fallidas int
 	var anuladasLapiz, anuladasTexto, anuladasCorrector, anuladasFirmas, anuladasVotos int
 	var observadasMancha int
+	var inconsistenciasGuardadas, actasGuardadas int
 
 	// Contadores globales de votos (solo de actas PROCESADAS)
 	votosTotalesPorCandidato := map[string]int{
@@ -229,7 +260,39 @@ func main() {
 
 		resultados = append(resultados, resultado)
 
-		// ═══ PASO 7: Imprimir resultado ═══
+		// ═══ PASO 7: Persistir en MongoDB ═══
+		opCtx := context.Background()
+
+		// Asegurar ActaID no vacío
+		if acta.ActaID == "" {
+			acta.ActaID = "MESA-" + strings.TrimSuffix(fileName, ".pdf")
+		}
+		// Calcular hash del archivo si no fue asignado por el parser
+		if acta.HashOrigen == "" {
+			if fileBytes, readErr := os.ReadFile(pdfPath); readErr == nil {
+				h := sha256.Sum256(fileBytes)
+				acta.HashOrigen = hex.EncodeToString(h[:])
+			}
+		}
+		acta.Fuente = models.FuenteRRV
+		acta.TipoEntrada = models.TipoPDF
+		if acta.FechaRecepcion.IsZero() {
+			acta.FechaRecepcion = time.Now()
+		}
+
+		// Detectar y registrar inconsistencias en Logs_Inconsistencias
+		incs := inconsistenciaService.DetectarYRegistrar(opCtx, acta, "OCR_PROCESSOR")
+		inconsistenciasGuardadas += len(incs)
+
+		// Guardar acta (skip si ya existe por idempotencia)
+		if saveErr := actaRepo.InsertActa(opCtx, acta); saveErr == nil {
+			actasGuardadas++
+		}
+
+		// ═══ PASO 8: Imprimir resultado ═══
+		if verbose && len(incs) > 0 {
+			fmt.Printf("\n         📋 %d inconsistencia(s) guardada(s) en Logs_Inconsistencias\n         ", len(incs))
+		}
 		switch acta.Estado {
 		case models.EstadoAnulada:
 			anuladas++
@@ -349,6 +412,8 @@ func main() {
 	if len(pdfs) > 0 {
 		fmt.Printf("  Tiempo promedio/acta:   %s\n", (elapsed / time.Duration(len(pdfs))).Round(time.Millisecond))
 	}
+	fmt.Printf("  📦 Actas guardadas en MongoDB:       %d\n", actasGuardadas)
+	fmt.Printf("  📋 Inconsistencias en Logs_Inconsistencias: %d\n", inconsistenciasGuardadas)
 	fmt.Println()
 
 	// Tabla de votos por candidato (solo actas procesadas)
