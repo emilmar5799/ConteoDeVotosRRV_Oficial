@@ -3,3 +3,6 @@
 
 # Excluir imágenes PNG
 *.png
+
+# Ejecutables
+*.exe
