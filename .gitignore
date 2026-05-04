@@ -7,3 +7,5 @@
 # Node.js y Expo
 node_modules/
 .expo/
+
+*.jpg

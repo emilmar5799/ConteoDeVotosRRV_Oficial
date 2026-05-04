@@ -176,7 +176,7 @@ func (p *ActaParser) parsearTextoEmbebido(text string, acta *models.ActaRRV, err
 		}
 	}
 
-	if len(cleanLines) < 5 {
+	if len(cleanLines) < 3 {
 		*errores = append(*errores, "texto embebido insuficiente")
 		return
 	}
@@ -185,6 +185,15 @@ func (p *ActaParser) parsearTextoEmbebido(text string, acta *models.ActaRRV, err
 	acta.Departamento = cleanLines[0]
 	acta.Provincia = cleanLines[1]
 	acta.Municipio = cleanLines[2]
+	if len(cleanLines) > 3 {
+		acta.Recinto = cleanLines[3]
+	}
+	if len(cleanLines) > 4 {
+		// Línea 4 suele ser la dirección/nombre del recinto (más descriptiva)
+		if len(cleanLines[4]) > len(acta.Recinto) {
+			acta.Recinto = cleanLines[4]
+		}
+	}
 
 	// Buscar el código de mesa (número de 13+ dígitos)
 	reCodigoMesa := regexp.MustCompile(`^(\d{13,16})$`)
@@ -278,33 +287,137 @@ func (p *ActaParser) parsearTextoEmbebido(text string, acta *models.ActaRRV, err
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// PARSER PARA TEXTO OCR (Tesseract) — fallback para PDFs escaneados
+// PARSER PARA TEXTO OCR (Tesseract) — PDFs escaneados e imágenes de cámara
+//
+// Estrategia dual:
+//   1. PRIMARIA: detección posicional por tripletes "d d d"
+//      → No depende de nombres de candidatos; funciona con cualquier acta real.
+//      → Los últimos 7 tripletes = [C1,C2,C3,C4, Válidos, Blancos, Nulos]
+//   2. FALLBACK: regex + nombres conocidos (solo para datos de test)
 // ═══════════════════════════════════════════════════════════════════
 
 func (p *ActaParser) parsearTextoOCR(text string, acta *models.ActaRRV, errores *[]string) {
-	// Código de mesa
+	// ── Campos de ubicación ───────────────────────────────────────
 	acta.CodigoMesa = p.extraerCodigoMesa(text)
-
-	// Número de mesa
 	acta.Mesa = p.extraerNumeroMesa(text)
-
-	// Ubicación
 	acta.Departamento = p.extraerCampoUbicacion(text, p.reDepartamento)
 	acta.Provincia = p.extraerCampoUbicacion(text, p.reProvincia)
 	acta.Municipio = p.extraerCampoUbicacion(text, p.reMunicipio)
-	acta.Recinto = p.extraerCampoUbicacion(text, p.reRecinto)
+	acta.Recinto = p.extraerRecinto(text)
 
-	// Candidatos y votos
+	// Fallback para departamento: buscar nombre conocido en el texto completo
+	if acta.Departamento == "" {
+		acta.Departamento = extraerDepartamentoDesdeTexto(text)
+	}
+
+	// ── MÉTODO 1: Tripletes posicionales (actas reales) ───────────
+	if p.parsearPorTriplets(text, acta) {
+		return
+	}
+
+	// ── MÉTODO 2: Regex explícita de totales ─────────────────────
+	acta.VotosValidos = p.extraerVotos(text, p.reVotosValidos)
+	acta.VotosBlancos = p.extraerVotos(text, p.reVotosBlancos)
+	acta.VotosNulos = p.extraerVotos(text, p.reVotosNulos)
+
+	// ── MÉTODO 3: Candidatos por nombre (datos de test) ───────────
 	candidatos := p.extraerCandidatos(text)
 	acta.Candidatos = candidatos
 	if len(candidatos) == 0 {
 		*errores = append(*errores, "no se encontraron candidatos en OCR")
 	}
+}
 
-	// Votos válidos, blancos, nulos
-	acta.VotosValidos = p.extraerVotos(text, p.reVotosValidos)
-	acta.VotosBlancos = p.extraerVotos(text, p.reVotosBlancos)
-	acta.VotosNulos = p.extraerVotos(text, p.reVotosNulos)
+// parsearPorTriplets extrae votos usando la posición relativa de los tripletes "d d d".
+//
+// Las actas bolivianas tienen los valores numéricos como 3 dígitos separados por espacios:
+//   "0 8 5" = 085 = 85 votos.
+//
+// Estructura fija de los últimos tripletes:
+//   [-N..-5]: datos administrativos (hora inicio/fin, electores, papeletas)
+//   [-4]:     candidato 1
+//   [-3..pero hay 4 candidatos en el PDF real]
+//   [...] :   candidatos (variable, típicamente 4-6)
+//   [-3]:     votos válidos
+//   [-2]:     votos blancos
+//   [-1]:     votos nulos
+//
+// Si hay >= 7 tripletes, los últimos 7 siempre son [c1,c2,c3,c4, val,bla,nul].
+func (p *ActaParser) parsearPorTriplets(text string, acta *models.ActaRRV) bool {
+	// Patrón amplio: un dígito (o sustituto) seguido de 1-4 espacios, repetido 3 veces.
+	// Acepta tanto "0 8 5" como "0  8  5" como "085" (sin espacios).
+	reTriplete := regexp.MustCompile(
+		`(?:^|[ \t])([0-9OolIBbSsZzGg|])[ \t]{0,4}([0-9OolIBbSsZzGg|])[ \t]{0,4}([0-9OolIBbSsZzGg|])(?:[ \t]|$)`,
+	)
+	// También acepta números de 3 dígitos pegados al final de línea
+	reNumFin := regexp.MustCompile(`(?:^|\s)(\d{3})(?:\s*$)`)
+
+	lines := strings.Split(text, "\n")
+	var triplets []int
+
+	for _, raw := range lines {
+		line := strings.TrimSpace(raw)
+		if line == "" || len(line) > 120 {
+			continue
+		}
+
+		// Intento 1: patrón espaciado "d d d"
+		if m := reTriplete.FindStringSubmatch(line); len(m) == 4 {
+			val := charToDigit(m[1])*100 + charToDigit(m[2])*10 + charToDigit(m[3])
+			triplets = append(triplets, val)
+			continue
+		}
+
+		// Intento 2: número de 3 dígitos al final de una línea casi-solo-numérica.
+		// Solo si la línea tiene pocos caracteres alfabéticos (evita capturar códigos de texto).
+		alphaCount := 0
+		for _, ch := range line {
+			if (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') {
+				alphaCount++
+			}
+		}
+		if alphaCount <= 2 {
+			if m := reNumFin.FindStringSubmatch(line); len(m) == 2 {
+				n, err := strconv.Atoi(m[1])
+				if err == nil && n >= 0 && n <= 999 {
+					triplets = append(triplets, n)
+				}
+			}
+		}
+	}
+
+	if len(triplets) < 7 {
+		return false
+	}
+
+	n := len(triplets)
+
+	// Últimos 3: totales
+	acta.VotosValidos = triplets[n-3]
+	acta.VotosBlancos = triplets[n-2]
+	acta.VotosNulos = triplets[n-1]
+
+	// Ante los últimos 3: candidatos (los 4 anteriores a los totales)
+	numCandidatos := 4
+	if n-3 < numCandidatos {
+		numCandidatos = n - 3
+	}
+	acta.Candidatos = make([]models.Candidato, numCandidatos)
+	for i := 0; i < numCandidatos; i++ {
+		acta.Candidatos[i] = models.Candidato{
+			CandidatoID: fmt.Sprintf("C%d", i+1),
+			Votos:       triplets[n-3-numCandidatos+i],
+		}
+	}
+
+	// Datos adicionales si hay suficientes tripletes (electores, papeletas)
+	if n >= 10 {
+		acta.ElectoresHabilitados = triplets[n-10]
+		acta.PapeletasAnfora = triplets[n-9]
+		acta.PapeletasNoUtilizadas = triplets[n-8]
+	}
+
+	return true
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -316,7 +429,14 @@ func (p *ActaParser) extraerCodigoMesa(text string) string {
 	if len(matches) > 1 {
 		return limpiarNumero(matches[1])
 	}
-	// Fallback: buscar número largo de 13+ dígitos
+	// Fallback: buscar número de 13–16 dígitos en cualquier línea del documento
+	re13 := regexp.MustCompile(`\b(\d{13,16})\b`)
+	for _, line := range strings.Split(text, "\n") {
+		if m := re13.FindStringSubmatch(line); len(m) > 1 {
+			return m[1]
+		}
+	}
+	// Buscar en todo el texto como último recurso (por si OCR pega líneas)
 	lines := strings.Split(text, "\n")
 	for i, line := range lines {
 		if i > 15 {
@@ -339,10 +459,62 @@ func (p *ActaParser) extraerNumeroMesa(text string) string {
 	return ""
 }
 
+// extraerRecinto intenta extraer el recinto electoral con varias estrategias:
+//  1. Regex en la misma línea: "Recinto: Nombre"
+//  2. Valor en la línea siguiente al label "Recinto"
+//  3. Variantes OCR del label ("Recinto|Reclnto|Reclnto" etc.)
+func (p *ActaParser) extraerRecinto(text string) string {
+	// Estrategia 1: mismo renglón
+	if v := p.extraerCampoUbicacion(text, p.reRecinto); v != "" {
+		return v
+	}
+	// Estrategia 2: valor en línea siguiente al label
+	reLabel := regexp.MustCompile(`(?i)R[eE][cC][iIlL1][nN][tT][oO0]`)
+	lines := strings.Split(text, "\n")
+	for i, line := range lines {
+		if reLabel.MatchString(line) {
+			// Puede haber el valor en la misma línea después de ":"
+			after := reLabel.ReplaceAllString(line, "")
+			after = strings.TrimSpace(strings.TrimLeft(after, ":. "))
+			if len(after) > 2 {
+				return after
+			}
+			// O en la siguiente línea
+			if i+1 < len(lines) {
+				next := strings.TrimSpace(lines[i+1])
+				// La siguiente línea no debe ser un número ni otro label
+				reJustNum := regexp.MustCompile(`^\d+$`)
+				if len(next) > 2 && !reJustNum.MatchString(next) {
+					return next
+				}
+			}
+		}
+	}
+	return ""
+}
+
 func (p *ActaParser) extraerCampoUbicacion(text string, re *regexp.Regexp) string {
 	matches := re.FindStringSubmatch(text)
 	if len(matches) > 1 {
 		return strings.TrimSpace(matches[1])
+	}
+	return ""
+}
+
+// departamentosBolivianos es la lista oficial de departamentos.
+var departamentosBolivianos = []string{
+	"Chuquisaca", "La Paz", "Cochabamba", "Oruro",
+	"Potosí", "Tarija", "Santa Cruz", "Beni", "Pando",
+}
+
+// extraerDepartamentoDesdeTexto busca nombres de departamentos bolivianos directamente
+// en el texto OCR cuando la etiqueta "Departamento:" no está presente.
+func extraerDepartamentoDesdeTexto(text string) string {
+	upper := strings.ToUpper(text)
+	for _, dep := range departamentosBolivianos {
+		if strings.Contains(upper, strings.ToUpper(dep)) {
+			return dep
+		}
 	}
 	return ""
 }

@@ -106,9 +106,80 @@ func (s *RealOCRService) ProcesarPDF(pdfPath string) (string, error) {
 	return "--- FUENTE: TESSERACT_OCR ---\n" + textOCR, nil
 }
 
-// ProcesarImagen ejecuta OCR directamente sobre una imagen.
+// ProcesarImagen ejecuta OCR sobre una imagen capturada por cámara.
+// Usa dos pasadas de Tesseract con diferentes modos y combina los resultados.
 func (s *RealOCRService) ProcesarImagen(imagePath string) (string, error) {
-	return s.RunOCR(imagePath)
+	// Pasada 1: PSM 6 — bloque uniforme de texto (mejor para documentos estructurados)
+	text6, err := s.runOCRWithPSM(imagePath, "6")
+	if err != nil {
+		// Si PSM 6 falla, intenta con PSM 3 (auto)
+		return s.RunOCR(imagePath)
+	}
+
+	// Pasada 2: PSM 11 — texto disperso (captura números sueltos en tablas)
+	text11, _ := s.runOCRWithPSM(imagePath, "11")
+
+	// Combinar: usar el texto con más contenido como base
+	combined := mergeOCROutputs(text6, text11)
+	return "--- FUENTE: TESSERACT_OCR ---\n" + combined, nil
+}
+
+// runOCRWithPSM ejecuta Tesseract con un modo de segmentación específico.
+func (s *RealOCRService) runOCRWithPSM(imagePath, psm string) (string, error) {
+	tmpFile, err := os.CreateTemp("", "ocr_psm"+psm+"_*")
+	if err != nil {
+		return "", err
+	}
+	tmpFile.Close()
+	outputBase := tmpFile.Name()
+	os.Remove(outputBase)
+
+	absDir, _ := filepath.Abs(".")
+	tessdataDir := filepath.Join(absDir, "tessdata")
+
+	cmd := exec.Command(s.tesseractPath,
+		imagePath,
+		outputBase,
+		"--tessdata-dir", tessdataDir,
+		"-l", s.language,
+		"--psm", psm,
+		"--oem", "1", // LSTM engine — más preciso que el motor legado
+	)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("tesseract psm%s falló: %v | %s", psm, err, string(output))
+	}
+
+	textPath := outputBase + ".txt"
+	textBytes, err := os.ReadFile(textPath)
+	os.Remove(textPath)
+	if err != nil {
+		return "", err
+	}
+	return string(textBytes), nil
+}
+
+// mergeOCROutputs combina dos salidas de Tesseract tomando el más rico en contenido.
+// Prioriza el que tiene más dígitos (votos), que es el dato crítico.
+func mergeOCROutputs(a, b string) string {
+	if b == "" {
+		return a
+	}
+	countDigits := func(s string) int {
+		n := 0
+		for _, c := range s {
+			if c >= '0' && c <= '9' {
+				n++
+			}
+		}
+		return n
+	}
+	// Usar el más largo en caracteres útiles; el b aporta si tiene más dígitos
+	if countDigits(b) > countDigits(a)+20 {
+		return b
+	}
+	return a
 }
 
 // convertPDFToImage convierte la primera página de un PDF a imagen PNG usando mutool.

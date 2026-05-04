@@ -63,6 +63,7 @@ type ValidacionVisualResult struct {
 	ConfusionAlfanumerica bool     `json:"confusion_alfanumerica" bson:"confusion_alfanumerica"`
 	CamposSospechosos     []string `json:"campos_sospechosos,omitempty" bson:"campos_sospechosos,omitempty"`
 	HuellasZonaNumeros    bool     `json:"huellas_zona_numeros"   bson:"huellas_zona_numeros"`
+	ArrugasDetectadas     bool     `json:"arrugas_detectadas"     bson:"arrugas_detectadas"`
 	FlagRevisionManual    bool     `json:"flag_revision_manual"   bson:"flag_revision_manual"`
 	PipelinePythonUsado   bool     `json:"pipeline_python_usado"  bson:"pipeline_python_usado"`
 
@@ -95,6 +96,7 @@ const (
 	MotivoSobreescritura      = "NUMERO_SOBREESCRITO"     // Dígito escrito encima de otro
 	MotivoConfusionAlfa       = "CONFUSION_ALFANUMERICA"  // Letras en campos numéricos
 	MotivoHuellaZonaNumeros   = "HUELLA_ZONA_NUMEROS"     // Huella dactilar sobre dígitos
+	MotivoActaArrugada        = "ACTA_ARRUGADA"           // Papel muy arrugado o dañado
 )
 
 // Fuentes de datos

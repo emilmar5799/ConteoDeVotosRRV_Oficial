@@ -1,156 +1,225 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   StyleSheet, Text, View, TouchableOpacity, Image,
-  SafeAreaView, ActivityIndicator, ScrollView, Alert,
+  ActivityIndicator, ScrollView, Alert,
+  Platform, StatusBar as RNStatusBar, Animated, Easing
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { StatusBar } from 'expo-status-bar';
 
 // ─── CONFIGURACIÓN ────────────────────────────────────────────────────────────
-// Cambia esta IP por la de tu computadora en la red local.
-// En Android físico/iOS no funciona "localhost" — necesitas la IP real.
-// En emulador Android usa: "10.0.2.2"
-// Para encontrar tu IP: ejecuta "ipconfig" (Windows) o "ifconfig" (Mac/Linux)
-const BACKEND_URL = 'http://192.168.1.100:8080';
+const BACKEND_URL = 'http://192.168.1.73:8080';
 // ─────────────────────────────────────────────────────────────────────────────
 
 const ESTADOS = {
-  PROCESADA:  { color: '#16a34a', bg: '#dcfce7', label: 'PROCESADA' },
-  ERROR:      { color: '#dc2626', bg: '#fee2e2', label: 'ERROR' },
-  ANULADA:    { color: '#dc2626', bg: '#fee2e2', label: 'ANULADA' },
-  OBSERVADA:  { color: '#d97706', bg: '#fef3c7', label: 'OBSERVADA' },
+  PROCESADA: { color: '#22c55e', bg: '#052e16', border: '#166534', label: 'PROCESADA' },
+  ERROR: { color: '#f87171', bg: '#2d0a0a', border: '#7f1d1d', label: 'ERROR' },
+  ANULADA: { color: '#f87171', bg: '#2d0a0a', border: '#7f1d1d', label: 'ANULADA' },
+  OBSERVADA: { color: '#fbbf24', bg: '#2d1b00', border: '#78350f', label: 'OBSERVADA' },
 };
+
+const PARTIDOS = {
+  'C1': 'Daenerys Targaryen',
+  'C2': 'Sansa Stark',
+  'C3': 'Robert Baratheon',
+  'C4': 'Tyrion Lannister',
+  '1': 'Daenerys Targaryen',
+  '2': 'Sansa Stark',
+  '3': 'Robert Baratheon',
+  '4': 'Tyrion Lannister',
+};
+
+function getCandidatoNombre(id) {
+  return PARTIDOS[id] || id;
+}
+
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Pantalla: RESULTADOS OCR
 // ─────────────────────────────────────────────────────────────────────────────
 function ResultsScreen({ acta, onReset }) {
-  const estadoInfo = ESTADOS[acta.estado] ?? { color: '#6b7280', bg: '#f3f4f6', label: acta.estado };
+  const est = ESTADOS[acta.estado] ?? { color: '#94a3b8', bg: '#1e293b', border: '#334155', label: acta.estado };
+
+  const totalVotos = acta.total_votos || (acta.votos_validos + acta.votos_blancos + acta.votos_nulos);
+  const pctValidos = totalVotos > 0 ? ((acta.votos_validos / totalVotos) * 100).toFixed(1) : '0';
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={s.screen}>
       <StatusBar style="light" />
-      <ScrollView contentContainerStyle={styles.resultsScroll} showsVerticalScrollIndicator={false}>
 
-        {/* Badge de estado */}
-        <View style={[styles.estadoBadge, { backgroundColor: estadoInfo.bg }]}>
-          <Text style={[styles.estadoText, { color: estadoInfo.color }]}>{estadoInfo.label}</Text>
-          {acta.motivo_estado ? (
-            <Text style={[styles.estadoMotivo, { color: estadoInfo.color }]}>{acta.motivo_estado}</Text>
-          ) : null}
+      {/* Header fijo */}
+      <View style={s.resultsHeader}>
+        <Text style={s.resultsHeaderTitle}>Resultado OCR</Text>
+        <TouchableOpacity style={s.btnNueva} onPress={onReset}>
+          <Text style={s.btnNuevaText}>+ Nueva acta</Text>
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView
+        style={s.scroll}
+        contentContainerStyle={s.scrollContent}
+        showsVerticalScrollIndicator={false}
+        bounces={true}
+      >
+        {/* Badge estado */}
+        <View style={[s.estadoBadge, { backgroundColor: est.bg, borderColor: est.border }]}>
+          <View style={[s.estadoDot, { backgroundColor: est.color }]} />
+          <View style={s.estadoTexts}>
+            <Text style={[s.estadoLabel, { color: est.color }]}>{est.label}</Text>
+            {acta.motivo_estado ? (
+              <Text style={[s.estadoMotivo, { color: est.color }]}>{acta.motivo_estado}</Text>
+            ) : null}
+          </View>
         </View>
 
-        {/* Identificación del acta */}
-        <Card title="Identificación">
-          <Row label="Acta ID"    value={acta.acta_id      || '—'} />
-          <Row label="Código mesa" value={acta.codigo_mesa || '—'} />
-          <Row label="Mesa"       value={acta.mesa         || '—'} />
-        </Card>
+        {/* Identificación */}
+        <Section title="Identificación" icon="🪪">
+          <DataRow label="Acta ID" value={acta.acta_id} mono />
+          <DataRow label="Código mesa" value={acta.codigo_mesa} mono />
+          <DataRow label="N° mesa" value={acta.mesa} />
+        </Section>
 
         {/* Ubicación */}
-        <Card title="Ubicación">
-          <Row label="Departamento" value={acta.departamento || '—'} />
-          <Row label="Provincia"    value={acta.provincia    || '—'} />
-          <Row label="Municipio"    value={acta.municipio    || '—'} />
-          <Row label="Recinto"      value={acta.recinto      || '—'} />
-        </Card>
-
-        {/* Votantes */}
-        {acta.electores_habilitados > 0 && (
-          <Card title="Padrón">
-            <Row label="Electores habilitados" value={acta.electores_habilitados} />
-            <Row label="Papeletas en ánfora"   value={acta.papeletas_anfora} />
-            <Row label="Papeletas no usadas"   value={acta.papeletas_no_utilizadas} />
-          </Card>
-        )}
+        <Section title="Ubicación" icon="📍">
+          <DataRow label="Departamento" value={acta.departamento} />
+          <DataRow label="Provincia" value={acta.provincia} />
+          <DataRow label="Municipio" value={acta.municipio} />
+          <DataRow label="Recinto" value={acta.recinto} />
+        </Section>
 
         {/* Candidatos */}
         {acta.candidatos?.length > 0 && (
-          <Card title="Votos por candidato">
-            {acta.candidatos.map((c, i) => (
-              <Row
-                key={c.candidato_id}
-                label={candidatoNombre(c.candidato_id, i)}
-                value={c.votos}
-                highlight
-              />
-            ))}
-          </Card>
+          <Section title="Votos por candidato" icon="🗳️">
+            {acta.candidatos.map((c, i) => {
+              const pct = acta.votos_validos > 0 ? ((c.votos / acta.votos_validos) * 100).toFixed(1) : '0';
+              return (
+                <View key={c.candidato_id} style={s.candidatoRow}>
+                  <View style={s.candidatoLeft}>
+                    <View style={[s.candidatoBullet, { backgroundColor: BULLET_COLORS[i % BULLET_COLORS.length] }]} />
+                    <Text style={s.candidatoNombre}>
+                      {getCandidatoNombre(c.candidato_id) !== c.candidato_id 
+                        ? getCandidatoNombre(c.candidato_id) 
+                        : (c.partido || c.nombre || c.nombre_partido || `Candidato ${c.candidato_id}`)}
+                    </Text>
+                  </View>
+                  <View style={s.candidatoRight}>
+                    <Text style={s.candidatoVotos}>{c.votos}</Text>
+                    <Text style={s.candidatoPct}>{pct}%</Text>
+                  </View>
+                </View>
+              );
+            })}
+            {/* Barra visual de distribución */}
+            {acta.candidatos.length > 0 && acta.votos_validos > 0 && (
+              <View style={s.barraDistrib}>
+                {acta.candidatos.map((c, i) => {
+                  const pct = (c.votos / acta.votos_validos) * 100;
+                  return (
+                    <View
+                      key={c.candidato_id}
+                      style={[s.barraSegmento, { flex: pct || 0.1, backgroundColor: BULLET_COLORS[i % BULLET_COLORS.length] }]}
+                    />
+                  );
+                })}
+              </View>
+            )}
+          </Section>
         )}
 
         {/* Totales */}
-        <Card title="Totales">
-          <Row label="Votos válidos" value={acta.votos_validos}  accent />
-          <Row label="Votos blancos" value={acta.votos_blancos} />
-          <Row label="Votos nulos"   value={acta.votos_nulos} />
-          <View style={styles.divider} />
-          <Row label="Total votos"   value={acta.total_votos} accent />
-        </Card>
+        <Section title="Totales" icon="📊">
+          <DataRow label="Votos válidos" value={acta.votos_validos} accent />
+          <DataRow label="Votos blancos" value={acta.votos_blancos} />
+          <DataRow label="Votos nulos" value={acta.votos_nulos} />
+          <View style={s.divider} />
+          <DataRow label="Total sufragios" value={totalVotos} accent />
+          <DataRow label="Participación" value={`${pctValidos}% votos válidos`} />
+        </Section>
 
-        {/* Validación visual */}
+        {/* Padrón */}
+        {acta.electores_habilitados > 0 && (
+          <Section title="Padrón" icon="👥">
+            <DataRow label="Electores habilitados" value={acta.electores_habilitados} />
+            <DataRow label="Papeletas en ánfora" value={acta.papeletas_anfora} />
+            <DataRow label="Papeletas no utilizadas" value={acta.papeletas_no_utilizadas} />
+          </Section>
+        )}
+
+        {/* Alertas visuales */}
         {acta.validacion_visual && hasVisualFlags(acta.validacion_visual) && (
-          <Card title="Alertas visuales" alertCard>
-            {acta.validacion_visual.lapiz_detectado      && <Flag label="Uso de lápiz detectado" />}
-            {acta.validacion_visual.corrector_detectado  && <Flag label="Corrector (liquid paper)" />}
-            {acta.validacion_visual.tachadura_detectada  && <Flag label="Tachadura / sobreescritura" />}
-            {acta.validacion_visual.numeros_sobreescritos && <Flag label="Números sobreescritos (OpenCV)" />}
-            {acta.validacion_visual.confusion_alfanumerica && <Flag label="Confusión alfanumérica" />}
-            {acta.validacion_visual.huellas_zona_numeros  && <Flag label="Huella dactilar en zona de números" />}
-            {acta.validacion_visual.rotura_detectada      && <Flag label="Rotura crítica del papel" />}
+          <Section title="Alertas visuales" icon="⚠️" alert>
+            {acta.validacion_visual.lapiz_detectado && <AlertRow label="Escritura a lápiz detectada" />}
+            {acta.validacion_visual.corrector_detectado && <AlertRow label="Corrector (liquid paper)" />}
+            {acta.validacion_visual.tachadura_detectada && <AlertRow label="Tachadura / sobreescritura" />}
+            {acta.validacion_visual.numeros_sobreescritos && <AlertRow label="Números sobreescritos (OpenCV)" />}
+            {acta.validacion_visual.confusion_alfanumerica && <AlertRow label="Confusión alfanumérica" />}
+            {acta.validacion_visual.huellas_zona_numeros && <AlertRow label="Huella dactilar en zona de números" />}
+            {acta.validacion_visual.rotura_detectada && <AlertRow label="Rotura crítica del papel" />}
             {acta.validacion_visual.mancha_detectada && (
-              <Flag label={`Mancha de tinta (${acta.validacion_visual.porcentaje_mancha?.toFixed(1)}% del área)`} />
+              <AlertRow label={`Mancha de tinta (${acta.validacion_visual.porcentaje_mancha?.toFixed(1)}% del área)`} />
             )}
             {!acta.validacion_visual.firmas_suficientes && (
-              <Flag label={`Firmas insuficientes (${acta.validacion_visual.huellas_detectadas} detectadas)`} />
+              <AlertRow label={`Firmas insuficientes (${acta.validacion_visual.huellas_detectadas} detectadas)`} />
             )}
-          </Card>
+          </Section>
         )}
 
-        {/* Errores de validación */}
+        {/* Observaciones */}
         {acta.errores?.length > 0 && (
-          <Card title="Observaciones" alertCard>
+          <Section title="Observaciones" icon="📋" alert>
             {acta.errores.map((e, i) => (
-              <Text key={i} style={styles.errorLine}>• {e}</Text>
+              <Text key={i} style={s.errorLine}>• {e}</Text>
             ))}
-          </Card>
+          </Section>
         )}
 
-        {/* Botón para tomar otra foto */}
-        <TouchableOpacity style={styles.btnPrimary} onPress={onReset}>
-          <Text style={styles.btnText}>Procesar otra acta</Text>
-        </TouchableOpacity>
-
-        <View style={{ height: 32 }} />
+        <View style={{ height: 40 }} />
       </ScrollView>
-    </SafeAreaView>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Componentes auxiliares de UI
-// ─────────────────────────────────────────────────────────────────────────────
-function Card({ title, children, alertCard }) {
-  return (
-    <View style={[styles.card, alertCard && styles.cardAlert]}>
-      <Text style={[styles.cardTitle, alertCard && styles.cardTitleAlert]}>{title}</Text>
-      {children}
     </View>
   );
 }
 
-function Row({ label, value, accent, highlight }) {
+const BULLET_COLORS = ['#3b82f6', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#06b6d4'];
+
+function Section({ title, icon, children, alert }) {
   return (
-    <View style={styles.row}>
-      <Text style={styles.rowLabel}>{label}</Text>
-      <Text style={[styles.rowValue, accent && styles.rowValueAccent, highlight && styles.rowValueHighlight]}>
-        {value ?? '—'}
+    <View style={[s.section, alert && s.sectionAlert]}>
+      <View style={s.sectionHeader}>
+        <Text style={s.sectionIcon}>{icon}</Text>
+        <Text style={[s.sectionTitle, alert && s.sectionTitleAlert]}>{title}</Text>
+      </View>
+      <View style={s.sectionBody}>{children}</View>
+    </View>
+  );
+}
+
+function DataRow({ label, value, accent, mono }) {
+  if (value === null || value === undefined || value === '' || value === 0) {
+    return (
+      <View style={s.dataRow}>
+        <Text style={s.dataLabel}>{label}</Text>
+        <Text style={s.dataEmpty}>—</Text>
+      </View>
+    );
+  }
+  return (
+    <View style={s.dataRow}>
+      <Text style={s.dataLabel}>{label}</Text>
+      <Text style={[s.dataValue, accent && s.dataValueAccent, mono && s.dataValueMono]}>
+        {typeof value === 'number' ? value.toLocaleString() : value}
       </Text>
     </View>
   );
 }
 
-function Flag({ label }) {
-  return <Text style={styles.flagLine}>⚠ {label}</Text>;
+function AlertRow({ label }) {
+  return (
+    <View style={s.alertRow}>
+      <Text style={s.alertDot}>▲</Text>
+      <Text style={s.alertText}>{label}</Text>
+    </View>
+  );
 }
 
 function hasVisualFlags(v) {
@@ -159,18 +228,8 @@ function hasVisualFlags(v) {
     v.rotura_detectada || v.mancha_detectada || !v.firmas_suficientes;
 }
 
-const CANDIDATOS_CONOCIDOS = [
-  'Daenerys Targaryen',
-  'Sansa Stark',
-  'Robert Baratheon',
-  'Tyrion Lannister',
-];
-function candidatoNombre(id, idx) {
-  return CANDIDATOS_CONOCIDOS[idx] ?? id;
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
-// Pantalla: CÁMARA
+// Pantalla principal: CÁMARA + PREVIEW + CARGA
 // ─────────────────────────────────────────────────────────────────────────────
 export default function App() {
   const [permission, requestPermission] = useCameraPermissions();
@@ -180,63 +239,101 @@ export default function App() {
   const [acta, setActa] = useState(null);
   const cameraRef = useRef(null);
 
-  // ── Sin permiso ──────────────────────────────────────────────────
-  if (!permission) return <View style={styles.container} />;
+  // Progress bar animation
+  const progressAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (uploading) {
+      progressAnim.setValue(0);
+      Animated.loop(
+        Animated.timing(progressAnim, {
+          toValue: 1,
+          duration: 1200,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: false,
+        })
+      ).start();
+    } else {
+      progressAnim.stopAnimation();
+    }
+  }, [uploading]);
+
+  const barWidth = progressAnim.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: ['0%', '80%', '0%']
+  });
+  const barLeft = progressAnim.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: ['0%', '10%', '100%']
+  });
+
+  if (!permission) return <View style={s.screen} />;
+
   if (!permission.granted) {
     return (
-      <SafeAreaView style={styles.container}>
-        <Text style={styles.permissionText}>
-          Se necesita acceso a la cámara para fotografiar el acta electoral.
-        </Text>
-        <TouchableOpacity style={styles.btnPrimary} onPress={requestPermission}>
-          <Text style={styles.btnText}>Conceder permiso</Text>
-        </TouchableOpacity>
-      </SafeAreaView>
+      <View style={s.screen}>
+        <StatusBar style="light" />
+        <View style={s.permissionBox}>
+          <Text style={s.permissionIcon}>📷</Text>
+          <Text style={s.permissionTitle}>Permiso de cámara</Text>
+          <Text style={s.permissionDesc}>
+            Para fotografiar el acta electoral y procesarla con OCR.
+          </Text>
+          <TouchableOpacity style={s.btnPrimary} onPress={requestPermission}>
+            <Text style={s.btnPrimaryText}>Conceder permiso</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
     );
   }
 
-  // ── Pantalla de resultados ───────────────────────────────────────
   if (acta) {
-    return <ResultsScreen acta={acta} onReset={() => { setActa(null); setPhotoUri(null); }} />;
+    return <ResultsScreen acta={acta} onReset={() => {
+      setActa(null);
+      setPhotoUri(null);
+    }} />;
   }
 
-  // ── Cargando: subiendo y procesando ─────────────────────────────
   if (uploading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={s.screen}>
         <StatusBar style="light" />
         {photoUri && (
-          <Image source={{ uri: photoUri }} style={styles.previewBlurred} resizeMode="cover" blurRadius={4} />
+          <Image source={{ uri: photoUri }} style={StyleSheet.absoluteFill} resizeMode="cover" blurRadius={6} />
         )}
-        <View style={styles.uploadingOverlay}>
-          <ActivityIndicator size="large" color="#3b82f6" />
-          <Text style={styles.uploadingText}>Procesando OCR…</Text>
-          <Text style={styles.uploadingSubtext}>Extrayendo votos y datos del acta</Text>
+        <View style={s.loadingOverlay}>
+          <View style={s.loadingCard}>
+            <Text style={s.loadingTitle}>Procesando OCR…</Text>
+            <Text style={s.loadingDesc}>Extrayendo votos y datos del acta</Text>
+
+            <View style={s.progressBarWrap}>
+              <Animated.View style={[s.progressBar, { width: barWidth, left: barLeft }]} />
+            </View>
+          </View>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
-  // ── Preview de la foto ───────────────────────────────────────────
   if (photoUri) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={s.screen}>
         <StatusBar style="light" />
-        <Text style={styles.previewTitle}>¿La foto es clara?</Text>
-        <Image source={{ uri: photoUri }} style={styles.preview} resizeMode="contain" />
-        <View style={styles.previewActions}>
-          <TouchableOpacity style={styles.btnSecondary} onPress={() => setPhotoUri(null)}>
-            <Text style={styles.btnText}>Repetir</Text>
+        <Text style={s.previewTitle}>¿La foto es clara?</Text>
+        <Text style={s.previewSubtitle}>Verifica que los números sean legibles</Text>
+        <Image source={{ uri: photoUri }} style={s.previewImage} resizeMode="contain" />
+        <View style={s.previewActions}>
+          <TouchableOpacity style={s.btnSecondary} onPress={() => setPhotoUri(null)}>
+            <Text style={s.btnSecondaryText}>↩ Repetir</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.btnPrimary} onPress={() => enviarAlBackend(photoUri)}>
-            <Text style={styles.btnText}>Procesar OCR</Text>
+          <TouchableOpacity style={s.btnPrimary} onPress={() => enviarAlBackend(photoUri)}>
+            <Text style={s.btnPrimaryText}>Procesar OCR →</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
-  // ── Cámara ───────────────────────────────────────────────────────
   async function tomarFoto() {
     if (!cameraRef.current || capturing) return;
     setCapturing(true);
@@ -257,19 +354,20 @@ export default function App() {
       const filename = 'acta_' + Date.now() + '.jpg';
       form.append('archivo', { uri, name: filename, type: 'image/jpeg' });
 
+      // Timeout manual de 20 segundos
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20000);
+
       const res = await fetch(`${BACKEND_URL}/api/rrv/actas/upload`, {
         method: 'POST',
         body: form,
-        // No pongas 'Content-Type' manualmente — fetch lo genera con el boundary correcto
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
 
       const json = await res.json();
 
-      if (res.status === 409) {
-        // Duplicado: igual mostramos los datos que ya existen
-        setActa(json.data);
-        return;
-      }
+      if (res.status === 409) { setActa(json.data); return; }
       if (!res.ok || !json.success) {
         const errMsg = json.errors?.join('\n') || json.message || 'Error desconocido';
         Alert.alert('Error de procesamiento', errMsg, [
@@ -278,101 +376,371 @@ export default function App() {
         ]);
         return;
       }
+      
+      const actaObj = json.data;
+      
+      // Si el OCR falló pero el backend extrajo el código de mesa del timestamp,
+      // la única forma segura de saber que la imagen es inválida es si no pudo leer ningún voto.
+      const noHayVotos = (actaObj.votos_validos === 0 && actaObj.votos_nulos === 0 && actaObj.votos_blancos === 0);
 
-      setActa(json.data);
+      if (noHayVotos) {
+        Alert.alert(
+          'Imagen no detectada',
+          'No se pudieron extraer los datos básicos del acta.\n\nPor favor intenta nuevamente:\n• No muevas la cámara al tomar la foto\n• Verifica que haya buena iluminación\n• Asegúrate de que los números sean claros',
+          [
+            { text: 'Tomar otra foto', onPress: () => { setPhotoUri(null); setUploading(false); } }
+          ]
+        );
+        return;
+      }
+
+      setActa(actaObj);
     } catch (err) {
-      Alert.alert(
-        'Sin conexión',
-        `No se pudo contactar al servidor.\n\nVerifica que el backend esté corriendo y que BACKEND_URL sea correcto.\n\nError: ${err.message}`,
-        [
-          { text: 'Reintentar', onPress: () => { setUploading(false); enviarAlBackend(uri); } },
-          { text: 'Cancelar',   onPress: () => { setPhotoUri(null); setUploading(false); } },
-        ],
-      );
+      const isTimeout = err.name === 'AbortError' || err.message.includes('aborted');
+      const msg = isTimeout
+        ? 'El servidor tardó demasiado en responder (Timeout). Es probable que el OCR sea muy pesado o no detecte bien la imagen.'
+        : `No se pudo contactar al servidor.\n\nVerifica que:\n• El backend esté corriendo\n• BACKEND_URL sea tu IP local\n\n${err.message}`;
+
+      Alert.alert('Error de conexión', msg, [
+        { text: 'Reintentar', onPress: () => { setUploading(false); enviarAlBackend(uri); } },
+        { text: 'Cancelar', onPress: () => { setPhotoUri(null); setUploading(false); } },
+      ]);
     } finally {
       setUploading(false);
     }
   }
 
+  // ── Pantalla de cámara ────────────────────────────────────────────
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={s.screen}>
       <StatusBar style="light" />
-      <Text style={styles.header}>Captura de Acta Electoral</Text>
-      <CameraView ref={cameraRef} style={styles.camera} facing="back">
-        <View style={styles.guiaOverlay}>
-          <View style={styles.guiaMarco} />
+
+      {/* Header */}
+      <View style={s.camHeader}>
+        <Text style={s.camHeaderTitle}>Captura de Acta Electoral</Text>
+        <Text style={s.camHeaderSub}>Centra el documento dentro del marco</Text>
+      </View>
+
+      {/* Cámara con overlay de escaneo */}
+      <View style={s.cameraWrap}>
+        <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing="back" />
+
+        {/* Oscurecimiento lateral — deja el área del acta clara */}
+        <View style={s.scanOverlay} pointerEvents="none">
+          {/* Fila superior oscura */}
+          <View style={s.scanDark} />
+          {/* Fila central: lateral izq + ventana clara + lateral der */}
+          <View style={s.scanRow}>
+            <View style={s.scanSide} />
+            <View style={s.scanWindow}>
+              {/* Esquinas decorativas */}
+              <View style={[s.corner, s.cornerTL]} />
+              <View style={[s.corner, s.cornerTR]} />
+              <View style={[s.corner, s.cornerBL]} />
+              <View style={[s.corner, s.cornerBR]} />
+            </View>
+            <View style={s.scanSide} />
+          </View>
+          {/* Fila inferior oscura */}
+          <View style={s.scanDark} />
         </View>
-        <Text style={styles.guiaTxt}>Encuadra el acta dentro del marco</Text>
-      </CameraView>
-      <View style={styles.controls}>
+
+        {/* Instrucción flotante */}
+        <View style={s.scanHint} pointerEvents="none">
+          <Text style={s.scanHintText}>Mantén el acta plana y bien iluminada</Text>
+        </View>
+      </View>
+
+      {/* Botón de captura */}
+      <View style={s.camFooter}>
         <TouchableOpacity
-          style={[styles.btnCaptura, capturing && styles.btnDeshabilitado]}
+          style={[s.captureBtn, capturing && s.captureBtnDisabled]}
           onPress={tomarFoto}
           disabled={capturing}
+          activeOpacity={0.8}
         >
           {capturing
             ? <ActivityIndicator color="#fff" size="large" />
-            : <View style={styles.btnCapturaInner} />
+            : <View style={s.captureBtnInner} />
           }
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Estilos
 // ─────────────────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
-  container:       { flex: 1, backgroundColor: '#0f172a', alignItems: 'center', justifyContent: 'center' },
-  header:          { color: '#e2e8f0', fontSize: 15, fontWeight: '600', letterSpacing: 0.4, paddingVertical: 10 },
+const BG = '#0a0f1e';
+const CARD = '#111827';
+const BORDER = '#1e2a3d';
+const TEXT = '#f1f5f9';
+const MUTED = '#64748b';
+const ACCENT = '#3b82f6';
 
-  // Cámara
-  camera:          { flex: 1, width: '100%' },
-  guiaOverlay:     { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  guiaMarco:       { width: '88%', height: '78%', borderWidth: 2, borderColor: 'rgba(255,255,255,0.6)', borderRadius: 6, borderStyle: 'dashed' },
-  guiaTxt:         { color: 'rgba(255,255,255,0.7)', textAlign: 'center', fontSize: 12, paddingBottom: 8 },
-  controls:        { width: '100%', paddingVertical: 22, alignItems: 'center', backgroundColor: '#0f172a' },
-  btnCaptura:      { width: 72, height: 72, borderRadius: 36, borderWidth: 3, borderColor: '#fff', justifyContent: 'center', alignItems: 'center' },
-  btnCapturaInner: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#fff' },
-  btnDeshabilitado:{ opacity: 0.4 },
+const STATUSBAR_HEIGHT = Platform.OS === 'android' ? RNStatusBar.currentHeight : 44;
 
-  // Preview
-  previewTitle:    { color: '#e2e8f0', fontSize: 16, fontWeight: '600', marginBottom: 10 },
-  preview:         { flex: 1, width: '100%' },
-  previewBlurred:  { ...StyleSheet.absoluteFillObject },
-  previewActions:  { flexDirection: 'row', gap: 12, paddingVertical: 18, paddingHorizontal: 20 },
+const s = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: BG, paddingTop: STATUSBAR_HEIGHT },
 
-  // Upload loading
-  uploadingOverlay:{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(15,23,42,0.82)', justifyContent: 'center', alignItems: 'center', gap: 14 },
-  uploadingText:   { color: '#f1f5f9', fontSize: 18, fontWeight: '600' },
-  uploadingSubtext:{ color: '#94a3b8', fontSize: 13 },
+  // ── Cámara ────────────────────────────────────────────────────────
+  camHeader: {
+    paddingTop: Platform.OS === 'android' ? 12 : 4,
+    paddingBottom: 10,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+  },
+  camHeaderTitle: { color: TEXT, fontSize: 16, fontWeight: '700', letterSpacing: 0.3 },
+  camHeaderSub: { color: MUTED, fontSize: 12, marginTop: 2 },
 
-  // Buttons
-  btnPrimary:  { flex: 1, backgroundColor: '#2563eb', paddingVertical: 14, borderRadius: 10, alignItems: 'center' },
-  btnSecondary:{ flex: 1, backgroundColor: '#334155', paddingVertical: 14, borderRadius: 10, alignItems: 'center' },
-  btnText:     { color: '#fff', fontWeight: '600', fontSize: 15 },
-  permissionText: { color: '#94a3b8', textAlign: 'center', marginBottom: 24, paddingHorizontal: 32, fontSize: 14, lineHeight: 22 },
+  cameraWrap: { flex: 1, position: 'relative', overflow: 'hidden' },
 
-  // Results
-  resultsScroll: { paddingHorizontal: 16, paddingTop: 12 },
+  // Overlay de escaneo
+  scanOverlay: { ...StyleSheet.absoluteFillObject, flexDirection: 'column' },
+  scanDark: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)' },
+  scanRow: { flexDirection: 'row', height: '62%' },
+  scanSide: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)' },
+  scanWindow: {
+    flex: 7,
+    borderWidth: 0,
+    position: 'relative',
+  },
 
-  estadoBadge:  { borderRadius: 10, padding: 14, alignItems: 'center', marginBottom: 12 },
-  estadoText:   { fontSize: 20, fontWeight: '800', letterSpacing: 1 },
-  estadoMotivo: { fontSize: 12, marginTop: 4, fontWeight: '500' },
+  // Esquinas del visor
+  corner: { position: 'absolute', width: 22, height: 22, borderColor: '#fff' },
+  cornerTL: { top: 0, left: 0, borderTopWidth: 3, borderLeftWidth: 3, borderTopLeftRadius: 3 },
+  cornerTR: { top: 0, right: 0, borderTopWidth: 3, borderRightWidth: 3, borderTopRightRadius: 3 },
+  cornerBL: { bottom: 0, left: 0, borderBottomWidth: 3, borderLeftWidth: 3, borderBottomLeftRadius: 3 },
+  cornerBR: { bottom: 0, right: 0, borderBottomWidth: 3, borderRightWidth: 3, borderBottomRightRadius: 3 },
 
-  card:       { backgroundColor: '#1e293b', borderRadius: 10, padding: 14, marginBottom: 10 },
-  cardAlert:  { backgroundColor: '#1c1917', borderWidth: 1, borderColor: '#854d0e' },
-  cardTitle:  { color: '#94a3b8', fontSize: 11, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 8 },
-  cardTitleAlert: { color: '#ca8a04' },
+  scanHint: {
+    position: 'absolute',
+    bottom: 12,
+    left: 0, right: 0,
+    alignItems: 'center',
+  },
+  scanHintText: {
+    color: 'rgba(255,255,255,0.8)',
+    fontSize: 12,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  scanHintError: {
+    color: '#f87171',
+    backgroundColor: 'rgba(127,29,29,0.85)',
+    fontWeight: '600',
+  },
 
-  row:            { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 },
-  rowLabel:       { color: '#64748b', fontSize: 13, flex: 1 },
-  rowValue:       { color: '#e2e8f0', fontSize: 14, fontWeight: '500', textAlign: 'right' },
-  rowValueAccent: { color: '#60a5fa', fontWeight: '700', fontSize: 16 },
-  rowValueHighlight: { color: '#f8fafc', fontWeight: '700' },
-  divider:        { height: 1, backgroundColor: '#334155', marginVertical: 6 },
+  camFooter: {
+    paddingVertical: 24,
+    alignItems: 'center',
+    backgroundColor: BG,
+  },
+  captureBtn: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    borderWidth: 3,
+    borderColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  captureBtnDisabled: { opacity: 0.4 },
+  captureBtnInner: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: '#fff',
+  },
 
-  flagLine:  { color: '#fbbf24', fontSize: 13, paddingVertical: 3 },
-  errorLine: { color: '#f87171', fontSize: 12, paddingVertical: 2, lineHeight: 18 },
+  // ── Preview ───────────────────────────────────────────────────────
+  previewTitle: { color: TEXT, fontSize: 17, fontWeight: '700', textAlign: 'center', marginTop: 16, marginBottom: 4 },
+  previewSubtitle: { color: MUTED, fontSize: 13, textAlign: 'center', marginBottom: 12 },
+  previewImage: { flex: 1, width: '100%' },
+  previewActions: {
+    flexDirection: 'row',
+    gap: 12,
+    padding: 16,
+    backgroundColor: BG,
+  },
+
+  // ── Carga ─────────────────────────────────────────────────────────
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(10,15,30,0.75)',
+  },
+  loadingCard: {
+    backgroundColor: CARD,
+    borderRadius: 16,
+    padding: 32,
+    alignItems: 'center',
+    gap: 14,
+    borderWidth: 1,
+    borderColor: BORDER,
+    minWidth: 220,
+  },
+  loadingTitle: { color: TEXT, fontSize: 17, fontWeight: '600' },
+  loadingDesc: { color: MUTED, fontSize: 13, marginBottom: 8 },
+  progressBarWrap: {
+    height: 6,
+    width: '100%',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  progressBar: {
+    position: 'absolute',
+    height: '100%',
+    backgroundColor: ACCENT,
+    borderRadius: 3,
+  },
+
+  // ── Permiso ───────────────────────────────────────────────────────
+  permissionBox: {
+    flex: 1, justifyContent: 'center', alignItems: 'center',
+    paddingHorizontal: 32, gap: 14,
+  },
+  permissionIcon: { fontSize: 48 },
+  permissionTitle: { color: TEXT, fontSize: 20, fontWeight: '700' },
+  permissionDesc: { color: MUTED, fontSize: 14, textAlign: 'center', lineHeight: 21 },
+
+  // ── Botones ───────────────────────────────────────────────────────
+  btnPrimary: {
+    flex: 1,
+    backgroundColor: ACCENT,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  btnPrimaryText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  btnSecondary: {
+    flex: 1,
+    backgroundColor: '#1e293b',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: BORDER,
+  },
+  btnSecondaryText: { color: '#cbd5e1', fontWeight: '600', fontSize: 15 },
+
+  // ── Resultados: layout ────────────────────────────────────────────
+  resultsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'android' ? 12 : 4,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: BORDER,
+  },
+  resultsHeaderTitle: { color: TEXT, fontSize: 16, fontWeight: '700' },
+  btnNueva: {
+    backgroundColor: '#1e2a3d',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: ACCENT,
+  },
+  btnNuevaText: { color: ACCENT, fontSize: 13, fontWeight: '600' },
+
+  scroll: { flex: 1 },
+  scrollContent: { padding: 14, paddingBottom: 8 },
+
+  // ── Estado badge ──────────────────────────────────────────────────
+  estadoBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+  },
+  estadoDot: { width: 12, height: 12, borderRadius: 6 },
+  estadoTexts: { flex: 1 },
+  estadoLabel: { fontSize: 16, fontWeight: '800', letterSpacing: 0.8 },
+  estadoMotivo: { fontSize: 11, marginTop: 2, fontWeight: '500' },
+
+  // ── Secciones ─────────────────────────────────────────────────────
+  section: {
+    backgroundColor: CARD,
+    borderRadius: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: BORDER,
+    overflow: 'hidden',
+  },
+  sectionAlert: { borderColor: '#78350f' },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: BORDER,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+  },
+  sectionIcon: { fontSize: 14 },
+  sectionTitle: { color: '#94a3b8', fontSize: 11, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase' },
+  sectionTitleAlert: { color: '#f59e0b' },
+  sectionBody: { paddingHorizontal: 14, paddingVertical: 8 },
+
+  // ── Filas de datos ────────────────────────────────────────────────
+  dataRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.04)',
+  },
+  dataLabel: { color: MUTED, fontSize: 13, flex: 1, marginRight: 8 },
+  dataValue: { color: TEXT, fontSize: 14, fontWeight: '500', textAlign: 'right', maxWidth: '60%' },
+  dataValueAccent: { color: '#60a5fa', fontWeight: '700', fontSize: 16 },
+  dataValueMono: { fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', fontSize: 12 },
+  dataEmpty: { color: '#374151', fontSize: 14, textAlign: 'right' },
+  divider: { height: 1, backgroundColor: BORDER, marginVertical: 4 },
+
+  // ── Candidatos ────────────────────────────────────────────────────
+  candidatoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.04)',
+  },
+  candidatoLeft: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
+  candidatoBullet: { width: 10, height: 10, borderRadius: 5 },
+  candidatoNombre: { color: TEXT, fontSize: 14, fontWeight: '500' },
+  candidatoRight: { alignItems: 'flex-end' },
+  candidatoVotos: { color: '#f8fafc', fontSize: 18, fontWeight: '700' },
+  candidatoPct: { color: MUTED, fontSize: 11, marginTop: 1 },
+
+  barraDistrib: {
+    flexDirection: 'row',
+    height: 6,
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  barraSegmento: { height: 6 },
+
+  // ── Alertas ───────────────────────────────────────────────────────
+  alertRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, paddingVertical: 5 },
+  alertDot: { color: '#f59e0b', fontSize: 10, marginTop: 2 },
+  alertText: { color: '#fde68a', fontSize: 13, flex: 1, lineHeight: 19 },
+  errorLine: { color: '#fca5a5', fontSize: 12, paddingVertical: 3, lineHeight: 18 },
 });
