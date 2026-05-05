@@ -1,16 +1,22 @@
 package service
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"image"
 	"image/png"
+	"io"
 	"math"
+	"mime/multipart"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"rrv-backend/internal/models"
 )
@@ -28,11 +34,23 @@ import (
 // ═══════════════════════════════════════════════════════════════════
 
 type VisualValidator struct {
-	mutoolPath string
+	mutoolPath    string
+	pythonOCRURL  string     // URL del microservicio Python (vacío = deshabilitado)
+	httpClient    *http.Client
 }
 
 func NewVisualValidator(mutoolPath string) *VisualValidator {
-	return &VisualValidator{mutoolPath: mutoolPath}
+	return &VisualValidator{
+		mutoolPath:   mutoolPath,
+		pythonOCRURL: "http://localhost:8000",
+		httpClient:   &http.Client{Timeout: 15 * time.Second},
+	}
+}
+
+// SetPythonOCRURL permite configurar o deshabilitar el microservicio Python.
+// Pasar cadena vacía para deshabilitar.
+func (v *VisualValidator) SetPythonOCRURL(url string) {
+	v.pythonOCRURL = url
 }
 
 // ValidarImagenActa ejecuta análisis visual completo sobre el acta.
@@ -88,9 +106,17 @@ func (v *VisualValidator) ValidarImagenActa(pdfPath string) (*models.ValidacionV
 	// ═══ Detección de roturas (zonas blancas grandes en bordes) ═══
 	resultado.RoturaDetectada = v.detectarRoturas(img, bounds)
 
+	// ═══ Detección de actas arrugadas (sombras y varianza de grises) ═══
+	resultado.ArrugasDetectadas = v.detectarArrugas(img, bounds)
+
 	// ═══ Para PDFs image-only: detección visual de lápiz, tachaduras, etc. ═══
 	if !esProgramatico {
 		v.analizarImageOnly(img, bounds, resultado)
+	}
+
+	// ═══ FASE 3: ANÁLISIS AVANZADO vía microservicio Python/OpenCV ═══
+	if v.pythonOCRURL != "" {
+		v.llamarMicroservicioPython(imgPath, resultado)
 	}
 
 	// ═══ GENERAR OBSERVACIONES ═══
@@ -322,18 +348,21 @@ func (v *VisualValidator) detectarManchas(img image.Image, roi image.Rectangle) 
 			minC := math.Min(r8, math.Min(g8, b8))
 			saturacion := maxC - minC
 
-			// Mancha cálida = color saturado, tono café/naranja
+			// Mancha cálida = color saturado, tono café/naranja/grasa
 			manchaCalida := gray < 220 && gray > 60 && saturacion > 30 && r8 > b8
+			// Mancha de tinta azul/morada (tampos, bolígrafo reventado)
+			manchaTintaAzul := gray < 180 && saturacion > 30 && b8 > r8+10 && b8 > g8
+			// Mancha oscura general (tinta negra, barro, suciedad extrema)
+			manchaOscura := gray < 80 && saturacion < 30
 
-			if manchaCalida {
+			if manchaCalida || manchaTintaAzul || manchaOscura {
 				pixelesMancha++
 			}
-			_ = minC
 		}
 	}
 
 	porcentaje := float64(pixelesMancha) / float64(totalPixeles) * 100
-	return porcentaje > 5.0, porcentaje
+	return porcentaje > 3.0, porcentaje // Reducido a 3.0% para mayor sensibilidad
 }
 
 // detectarManchasBordes detecta manchas oscuras en las esquinas del acta
@@ -380,6 +409,52 @@ func (v *VisualValidator) detectarManchasBordes(img image.Image, bounds image.Re
 	porcentaje := float64(totalMancha) / float64(totalPixeles) * 100
 	// >20% de las esquinas oscuro = manchas/daño de papel
 	return porcentaje > 20, porcentaje
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// DETECCIÓN DE ACTAS ARRUGADAS
+//
+// Un acta muy arrugada tiene variaciones de sombra (píxeles grises)
+// en zonas que normalmente son blanco puro (los márgenes y fondos).
+// Evaluamos los márgenes laterales y contamos los píxeles de "sombra".
+// ═══════════════════════════════════════════════════════════════════
+
+func (v *VisualValidator) detectarArrugas(img image.Image, bounds image.Rectangle) bool {
+	w := bounds.Max.X
+	h := bounds.Max.Y
+
+	// ROIs de fondos y márgenes (izquierda y derecha, esquivando datos)
+	margenes := []image.Rectangle{
+		image.Rect(int(float64(w)*0.02), int(float64(h)*0.20), int(float64(w)*0.08), int(float64(h)*0.80)),
+		image.Rect(int(float64(w)*0.92), int(float64(h)*0.20), int(float64(w)*0.98), int(float64(h)*0.80)),
+	}
+
+	var pixelesSombra int
+	var totalPixeles int
+
+	for _, m := range margenes {
+		for y := m.Min.Y; y < m.Max.Y; y++ {
+			for x := m.Min.X; x < m.Max.X; x++ {
+				r, g, b, _ := img.At(x, y).RGBA()
+				gray := float64(r>>8)*0.299 + float64(g>>8)*0.587 + float64(b>>8)*0.114
+				totalPixeles++
+
+				// Las sombras de arrugas suelen ser grises medios a claros (130 a 200)
+				// El papel liso suele ser > 230
+				if gray >= 120 && gray <= 210 {
+					pixelesSombra++
+				}
+			}
+		}
+	}
+
+	if totalPixeles == 0 {
+		return false
+	}
+
+	ratioSombras := float64(pixelesSombra) / float64(totalPixeles)
+	// Si más del 25% de los márgenes tiene sombras de arrugas, consideramos que el papel está arrugado
+	return ratioSombras > 0.25
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -472,6 +547,96 @@ func (v *VisualValidator) contarHuellas(img image.Image, roi image.Rectangle) in
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// INTEGRACIÓN CON MICROSERVICIO PYTHON/OpenCV
+// ═══════════════════════════════════════════════════════════════════
+
+// pythonPreprocessResponse modela la respuesta JSON del microservicio.
+type pythonPreprocessResponse struct {
+	Flags struct {
+		ManchaDetectada       bool     `json:"mancha_detectada"`
+		PorcentajeMancha      float64  `json:"porcentaje_mancha"`
+		NumerosSobreescritos  bool     `json:"numeros_sobreescritos"`
+		CeldasSobreescritas   []string `json:"celdas_sobreescritas"`
+		ConfusionAlfanumerica bool     `json:"confusion_alfanumerica"`
+		CamposSospechosos     []string `json:"campos_sospechosos"`
+		HuellasZonaNumeros    bool     `json:"huellas_zona_numeros"`
+		FlagRevisionManual    bool     `json:"flag_revision_manual"`
+		Observaciones         []string `json:"observaciones"`
+	} `json:"flags"`
+}
+
+// llamarMicroservicioPython envía la imagen al microservicio Python y fusiona los flags
+// en el resultado existente. Falla en silencio (el pipeline Go sigue sin él).
+func (v *VisualValidator) llamarMicroservicioPython(imgPath string, resultado *models.ValidacionVisualResult) {
+	f, err := os.Open(imgPath)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+
+	part, err := writer.CreateFormFile("file", filepath.Base(imgPath))
+	if err != nil {
+		return
+	}
+	if _, err = io.Copy(part, f); err != nil {
+		return
+	}
+	_ = writer.WriteField("ocr_fields", "{}")
+	writer.Close()
+
+	req, err := http.NewRequest("POST", v.pythonOCRURL+"/preprocess", &body)
+	if err != nil {
+		return
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	resp, err := v.httpClient.Do(req)
+	if err != nil {
+		// Microservicio no disponible — continuar sin él
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return
+	}
+
+	var pyResp pythonPreprocessResponse
+	if err = json.NewDecoder(resp.Body).Decode(&pyResp); err != nil {
+		return
+	}
+
+	f2 := pyResp.Flags
+
+	// Fusionar: si Python detectó algo nuevo, actualizar el resultado
+	if f2.ManchaDetectada && !resultado.ManchaDetectada {
+		resultado.ManchaDetectada = true
+		resultado.PorcentajeMancha = f2.PorcentajeMancha
+	}
+	resultado.NumerosSobreescritos = f2.NumerosSobreescritos
+	resultado.CeldasSobreescritas = f2.CeldasSobreescritas
+	resultado.ConfusionAlfanumerica = f2.ConfusionAlfanumerica
+	resultado.CamposSospechosos = f2.CamposSospechosos
+	resultado.HuellasZonaNumeros = f2.HuellasZonaNumeros
+	resultado.FlagRevisionManual = f2.FlagRevisionManual
+	resultado.PipelinePythonUsado = true
+
+	// Agregar observaciones del pipeline Python (sin duplicar)
+	existentes := make(map[string]bool, len(resultado.Observaciones))
+	for _, o := range resultado.Observaciones {
+		existentes[o] = true
+	}
+	for _, o := range f2.Observaciones {
+		if !existentes[o] {
+			resultado.Observaciones = append(resultado.Observaciones, "[Python] "+o)
+		}
+	}
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // GENERACIÓN DE OBSERVACIONES
 // ═══════════════════════════════════════════════════════════════════
 
@@ -484,9 +649,9 @@ func (v *VisualValidator) generarObservaciones(resultado *models.ValidacionVisua
 		resultado.Observaciones = append(resultado.Observaciones,
 			"NULIDAD — CORRECTOR (LIQUID PAPER) detectado")
 	}
-	if resultado.TachaduraDetectada {
+	if resultado.TachaduraDetectada || resultado.NumerosSobreescritos {
 		resultado.Observaciones = append(resultado.Observaciones,
-			"NULIDAD — TACHADURA: números superpuestos en zona de votos")
+			"NULIDAD — TACHADURA/SOBREESCRITURA: números superpuestos en zona de votos")
 	}
 	if resultado.TextoAnuladaVisual {
 		resultado.Observaciones = append(resultado.Observaciones,
@@ -503,6 +668,19 @@ func (v *VisualValidator) generarObservaciones(resultado *models.ValidacionVisua
 	if resultado.ManchaDetectada {
 		resultado.Observaciones = append(resultado.Observaciones,
 			fmt.Sprintf("OBSERVACIÓN — MANCHA: %.1f%% del área afectada", resultado.PorcentajeMancha))
+	}
+	if resultado.ArrugasDetectadas {
+		resultado.Observaciones = append(resultado.Observaciones,
+			"OBSERVACIÓN — ACTA ARRUGADA: Se detectaron variaciones de sombra por pliegues en el papel")
+	}
+	if resultado.ConfusionAlfanumerica {
+		resultado.Observaciones = append(resultado.Observaciones,
+			fmt.Sprintf("OBSERVACIÓN — CONFUSIÓN ALFANUMÉRICA en campos: %s",
+				strings.Join(resultado.CamposSospechosos, ", ")))
+	}
+	if resultado.HuellasZonaNumeros {
+		resultado.Observaciones = append(resultado.Observaciones,
+			"OBSERVACIÓN — HUELLA DACTILAR detectada sobre zona de números")
 	}
 }
 

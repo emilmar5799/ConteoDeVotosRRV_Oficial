@@ -92,8 +92,17 @@ func main() {
 
 	// 4. Inicializar servicios
 	actaService := service.NewActaService()
-	ocrService := service.NewOCRService()
 	smsService := service.NewSMSService(cfg.PinValido, cfg.TelefonosAutorizados)
+
+	// Pipeline OCR real (Tesseract + mutool). Fallback al mock si no están instalados.
+	var ocrProcessor service.ActaProcessor
+	if pipeline, pipelineErr := service.NewOCRPipeline("", ""); pipelineErr != nil {
+		log.Printf("[WARN] Tesseract/mutool no disponibles (%v) — usando OCR mock", pipelineErr)
+		ocrProcessor = service.NewMockPipeline()
+	} else {
+		log.Println("[OK] Pipeline OCR real inicializado (Tesseract + mutool)")
+		ocrProcessor = pipeline
+	}
 
 	// Twilio — validador de firma + servicio de envío
 	twilioValidator := service.NewTwilioValidator(cfg.TwilioAuthToken, cfg.TwilioWebhookURL)
@@ -111,7 +120,7 @@ func main() {
 		log.Println("[WARN] Servicio Twilio no configurado — solo modo JSON disponible")
 	}
 
-	log.Println("[OK] Servicios inicializados: OCR, SMS, Twilio, Inconsistencias, CQRS Projector")
+	log.Println("[OK] Servicios inicializados: OCR pipeline, SMS, Twilio, Inconsistencias, CQRS Projector")
 
 	// 5. Directorio de uploads
 	execDir, _ := os.Getwd()
@@ -119,7 +128,7 @@ func main() {
 	os.MkdirAll(uploadDir, 0755)
 
 	// 6. Inicializar handlers
-	uploadHandler := handlers.NewUploadHandler(actaRepo, eventoRepo, ocrService, actaService, inconsistenciaService, cqrsProjector, uploadDir)
+	uploadHandler := handlers.NewUploadHandler(actaRepo, eventoRepo, ocrProcessor, actaService, inconsistenciaService, cqrsProjector, uploadDir)
 	smsHandler := handlers.NewSMSHandler(actaRepo, eventoRepo, smsRepo, smsService, actaService, twilioValidator, twilioService, inconsistenciaService, cqrsProjector)
 	queryHandler := handlers.NewQueryHandler(actaRepo, eventoRepo, smsRepo, inconsistenciaRepo, estadisticaRepo, referenciaRepo)
 	log.Println("[OK] Handlers HTTP inicializados")

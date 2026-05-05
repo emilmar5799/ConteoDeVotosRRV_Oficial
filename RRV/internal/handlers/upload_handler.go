@@ -21,7 +21,7 @@ import (
 type UploadHandler struct {
 	actaRepo              *repository.ActaRepository
 	eventoRepo            *repository.EventoRepository
-	ocrService            *service.OCRService
+	processor             service.ActaProcessor
 	actaService           *service.ActaService
 	inconsistenciaService *service.InconsistenciaService
 	cqrsProjector         *service.CQRSProjector
@@ -33,7 +33,7 @@ type UploadHandler struct {
 func NewUploadHandler(
 	actaRepo *repository.ActaRepository,
 	eventoRepo *repository.EventoRepository,
-	ocrService *service.OCRService,
+	processor service.ActaProcessor,
 	actaService *service.ActaService,
 	inconsistenciaService *service.InconsistenciaService,
 	cqrsProjector *service.CQRSProjector,
@@ -44,7 +44,7 @@ func NewUploadHandler(
 	return &UploadHandler{
 		actaRepo:              actaRepo,
 		eventoRepo:            eventoRepo,
-		ocrService:            ocrService,
+		processor:             processor,
 		actaService:           actaService,
 		inconsistenciaService: inconsistenciaService,
 		cqrsProjector:         cqrsProjector,
@@ -56,7 +56,7 @@ func NewUploadHandler(
 // HandleUpload procesa POST /api/rrv/actas/upload
 // Flujo: Recibir archivo → SHA256 → Verificar duplicado → OCR → Validar → Detectar inconsistencias → Guardar → CQRS → Eventos
 func (h *UploadHandler) HandleUpload(c *gin.Context) {
-	ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 90*time.Second) // OCR real necesita más tiempo
 	defer cancel()
 
 	// 1. Recibir archivo multipart
@@ -144,12 +144,24 @@ func (h *UploadHandler) HandleUpload(c *gin.Context) {
 		return
 	}
 
-	// 6. Procesar OCR (simulado)
-	acta := h.ocrService.ProcesarArchivo(fileHash, header.Filename)
-	acta.FechaRecepcion = time.Now()
+	// 6. Procesar OCR real (Tesseract + parser + validador visual)
+	acta, ocrErr := h.processor.ProcesarArchivo(savedPath, header.Filename)
+	if ocrErr != nil {
+		h.registrarEvento(ctx, "ERROR_OCR", models.EventoOCRProcesado,
+			fmt.Sprintf("Error OCR en %s: %v", header.Filename, ocrErr),
+			map[string]any{"filename": header.Filename, "error": ocrErr.Error()},
+		)
+		c.JSON(http.StatusUnprocessableEntity, models.APIResponse{
+			Success: false,
+			Message: "Error procesando OCR del archivo",
+			Errors:  []string{ocrErr.Error()},
+		})
+		return
+	}
+	acta.HashOrigen = fileHash
 
 	h.registrarEvento(ctx, acta.ActaID, models.EventoOCRProcesado,
-		fmt.Sprintf("OCR procesado: acta_id=%s, %d candidatos detectados", acta.ActaID, len(acta.Candidatos)),
+		fmt.Sprintf("OCR completado: acta_id=%s, %d candidatos", acta.ActaID, len(acta.Candidatos)),
 		map[string]any{"acta_id": acta.ActaID, "candidatos": len(acta.Candidatos)},
 	)
 

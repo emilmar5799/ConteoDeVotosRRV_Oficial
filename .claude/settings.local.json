@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(go build *)",
+      "Bash(Remove-Item -Recurse -Force node_modules -ErrorAction SilentlyContinue)",
+      "Bash(Remove-Item -Force package-lock.json -ErrorAction SilentlyContinue)",
+      "PowerShell(Get-NetTCPConnection *)",
+      "PowerShell(head *)",
+      "Bash(node --input-type=module)",
+      "Bash(echo \"exit:$?\")",
+      "Bash(go vet *)"
+    ]
+  }
+}

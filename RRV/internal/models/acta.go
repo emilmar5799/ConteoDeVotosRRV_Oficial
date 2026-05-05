@@ -44,18 +44,30 @@ type ActaRRV struct {
 
 // ValidacionVisualResult contiene el resultado del análisis visual del acta.
 type ValidacionVisualResult struct {
-	LapizDetectado     bool     `json:"lapiz_detectado"     bson:"lapiz_detectado"`
-	IntensidadPromedio float64  `json:"intensidad_promedio" bson:"intensidad_promedio"`
-	RatioContraste     float64  `json:"ratio_contraste"     bson:"ratio_contraste"`
-	ManchaDetectada    bool     `json:"mancha_detectada"    bson:"mancha_detectada"`
-	PorcentajeMancha   float64  `json:"porcentaje_mancha"   bson:"porcentaje_mancha"`
-	HuellasDetectadas  int      `json:"huellas_detectadas"  bson:"huellas_detectadas"`
-	FirmasSuficientes  bool     `json:"firmas_suficientes"  bson:"firmas_suficientes"`
-	CorrectorDetectado bool     `json:"corrector_detectado" bson:"corrector_detectado"`
-	TachaduraDetectada bool     `json:"tachadura_detectada" bson:"tachadura_detectada"`
-	RoturaDetectada    bool     `json:"rotura_detectada"    bson:"rotura_detectada"`
-	TextoAnuladaVisual bool     `json:"texto_anulada_visual" bson:"texto_anulada_visual"`
-	Observaciones      []string `json:"observaciones,omitempty" bson:"observaciones,omitempty"`
+	// ── Detección clásica (Go nativo) ──────────────────────────────────
+	LapizDetectado     bool    `json:"lapiz_detectado"     bson:"lapiz_detectado"`
+	IntensidadPromedio float64 `json:"intensidad_promedio" bson:"intensidad_promedio"`
+	RatioContraste     float64 `json:"ratio_contraste"     bson:"ratio_contraste"`
+	ManchaDetectada    bool    `json:"mancha_detectada"    bson:"mancha_detectada"`
+	PorcentajeMancha   float64 `json:"porcentaje_mancha"   bson:"porcentaje_mancha"`
+	HuellasDetectadas  int     `json:"huellas_detectadas"  bson:"huellas_detectadas"`
+	FirmasSuficientes  bool    `json:"firmas_suficientes"  bson:"firmas_suficientes"`
+	CorrectorDetectado bool    `json:"corrector_detectado" bson:"corrector_detectado"`
+	TachaduraDetectada bool    `json:"tachadura_detectada" bson:"tachadura_detectada"`
+	RoturaDetectada    bool    `json:"rotura_detectada"    bson:"rotura_detectada"`
+	TextoAnuladaVisual bool    `json:"texto_anulada_visual" bson:"texto_anulada_visual"`
+
+	// ── Detección avanzada (microservicio Python/OpenCV) ───────────────
+	NumerosSobreescritos  bool     `json:"numeros_sobreescritos"  bson:"numeros_sobreescritos"`
+	CeldasSobreescritas   []string `json:"celdas_sobreescritas,omitempty" bson:"celdas_sobreescritas,omitempty"`
+	ConfusionAlfanumerica bool     `json:"confusion_alfanumerica" bson:"confusion_alfanumerica"`
+	CamposSospechosos     []string `json:"campos_sospechosos,omitempty" bson:"campos_sospechosos,omitempty"`
+	HuellasZonaNumeros    bool     `json:"huellas_zona_numeros"   bson:"huellas_zona_numeros"`
+	ArrugasDetectadas     bool     `json:"arrugas_detectadas"     bson:"arrugas_detectadas"`
+	FlagRevisionManual    bool     `json:"flag_revision_manual"   bson:"flag_revision_manual"`
+	PipelinePythonUsado   bool     `json:"pipeline_python_usado"  bson:"pipeline_python_usado"`
+
+	Observaciones []string `json:"observaciones,omitempty" bson:"observaciones,omitempty"`
 }
 
 // Estados válidos del acta
@@ -80,7 +92,11 @@ const (
 
 // Motivos de observación (⚠️ van a revisión, no anulan de inmediato)
 const (
-	MotivoMancha = "MANCHA_SOBRE_DATOS" // Mancha tapa números o QR
+	MotivoMancha              = "MANCHA_SOBRE_DATOS"      // Mancha tapa números o QR
+	MotivoSobreescritura      = "NUMERO_SOBREESCRITO"     // Dígito escrito encima de otro
+	MotivoConfusionAlfa       = "CONFUSION_ALFANUMERICA"  // Letras en campos numéricos
+	MotivoHuellaZonaNumeros   = "HUELLA_ZONA_NUMEROS"     // Huella dactilar sobre dígitos
+	MotivoActaArrugada        = "ACTA_ARRUGADA"           // Papel muy arrugado o dañado
 )
 
 // Fuentes de datos
