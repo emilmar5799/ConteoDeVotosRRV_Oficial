@@ -92,52 +92,82 @@ def process_df(df):
         df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0)
     df["Participacion"] = (df["VotantesHabilitados"].replace(0, pd.NA)
                            .pipe(lambda s: df["VotosValidos"] / s * 100)).round(1).fillna(0)
-    df["Ganador"] = df[PARTY_COLS].idxmax(axis=1).map(PARTY_NAMES)
+    df["GanadorCodigo"] = df[PARTY_COLS].idxmax(axis=1)
+    df["Ganador"] = df["GanadorCodigo"].map(PARTY_NAMES)
     total = df[PARTY_COLS + ["VotosValidos","VotosBlancos","VotosNulos","VotantesHabilitados"]].sum()
     total_votos = total["VotosValidos"]
     return df, total, total_votos
+
+
+def parse_sms_raw(mensaje_raw):
+    if not isinstance(mensaje_raw, str):
+        return {}
+    parts = [p.strip() for p in mensaje_raw.split("|") if ":" in p]
+    parsed = {}
+    for part in parts:
+        key, value = part.split(":", 1)
+        parsed[key.strip().upper()] = value.strip()
+    return parsed
 
 
 def get_mongo_data():
     try:
         client = pymongo.MongoClient("mongodb+srv://luxxogc_db_user:Mongo@cluster0.wftdss1.mongodb.net/?appName=Cluster0")
         db = client["electoral_rrv"]
-        collection = db["Transcripciones"]
-        
-        # Fetch all documents
-        docs = list(collection.find({}, {"_id": 0}))  # Exclude _id
-        
+        collection = db["sms_rrv"]
+
+        docs = list(collection.find({"estado": "PROCESADO"}, {"_id": 0, "mensaje_raw": 1}))
+        processed_count = len(docs)
+
         if not docs:
-            # Empty data
             mongo_df = pd.DataFrame(columns=["Departamento", "Municipio", "VotantesHabilitados", "VotosValidos", "VotosBlancos", "VotosNulos", "P1", "P2", "P3", "P4"])
             mongo_df.loc[0] = ["Sin Datos", "Sin Datos", 1, 0, 0, 0, 0, 0, 0, 0]
         else:
-            mongo_df = pd.DataFrame(docs)
-            # Rename c1 to P1, etc.
-            rename_map = {"c1": "P1", "c2": "P2", "c3": "P3", "c4": "P4"}
-            mongo_df.rename(columns=rename_map, inplace=True)
-            # Ensure all required columns exist
+            rows = []
+            for doc in docs:
+                parsed = parse_sms_raw(doc.get("mensaje_raw", ""))
+                departamento = parsed.get("DEP", "Desconocido")
+                municipio = parsed.get("MUN", "Desconocido")
+                votos_validos = int(parsed.get("VAL", 0) or 0)
+                votos_nulos = int(parsed.get("NUL", 0) or 0)
+                votos_blancos = int(parsed.get("BLA", 0) or 0)
+                p1 = int(parsed.get("C1", 0) or 0)
+                p2 = int(parsed.get("C2", 0) or 0)
+                p3 = int(parsed.get("C3", 0) or 0)
+                p4 = int(parsed.get("C4", 0) or 0)
+                votos_habilitados = votos_validos + votos_nulos + votos_blancos
+                rows.append({
+                    "Departamento": departamento,
+                    "Municipio": municipio,
+                    "VotantesHabilitados": votos_habilitados,
+                    "VotosValidos": votos_validos,
+                    "VotosBlancos": votos_blancos,
+                    "VotosNulos": votos_nulos,
+                    "P1": p1,
+                    "P2": p2,
+                    "P3": p3,
+                    "P4": p4,
+                })
+            mongo_df = pd.DataFrame(rows)
             required_cols = ["Departamento", "Municipio", "VotantesHabilitados", "VotosValidos", "VotosBlancos", "VotosNulos", "P1", "P2", "P3", "P4"]
             for col in required_cols:
                 if col not in mongo_df.columns:
                     mongo_df[col] = 0
-        
-        # Group by Departamento and Municipio for muni_df
+
         mongo_muni_df = mongo_df.groupby(["Departamento", "Municipio"], as_index=False).sum(numeric_only=True)
-        # Aggregate to department level
         mongo_dept_df = mongo_muni_df.groupby("Departamento", as_index=False).sum(numeric_only=True)
-        
-        return mongo_dept_df, mongo_muni_df
+        return mongo_dept_df, mongo_muni_df, processed_count
     except Exception as e:
         print(f"Error reading from MongoDB: {e}")
         mongo_muni_df = pd.DataFrame(columns=["Departamento", "Municipio", "VotantesHabilitados", "VotosValidos", "VotosBlancos", "VotosNulos", "P1", "P2", "P3", "P4"])
         mongo_muni_df.loc[0] = ["Error Mongo", "Error Mongo", 1, 0, 0, 0, 0, 0, 0, 0]
         mongo_dept_df = mongo_muni_df.groupby("Departamento", as_index=False).sum(numeric_only=True)
-        return mongo_dept_df, mongo_muni_df
+        return mongo_dept_df, mongo_muni_df, 0
 
 
 # ── GeoJSON Bolivia departamentos ────────────────────────────────────────────
-GEOJSON_URL = "https://raw.githubusercontent.com/juanchos2018/bolivia-geojson/main/bolivia-departamentos.json"
+# The old GeoJSON source is unavailable, so the map uses department centroids instead.
+GEOJSON_URL = None
 
 DEPT_MAP = {
     "Beni":        "El Beni",
@@ -149,6 +179,18 @@ DEPT_MAP = {
     "Potosí":      "Potosí",
     "Santa Cruz":  "Santa Cruz",
     "Tarija":      "Tarija",
+}
+
+DEPT_COORDS = {
+    "Beni":       (-14.8333, -64.9),
+    "Chuquisaca": (-19.0333, -65.2627),
+    "Cochabamba":(-17.3936, -66.1570),
+    "La Paz":     (-16.4897, -68.1193),
+    "Oruro":      (-17.9833, -67.1333),
+    "Pando":      (-11.0200, -68.7500),
+    "Potosí":     (-19.5833, -65.7500),
+    "Santa Cruz": (-17.7833, -63.1822),
+    "Tarija":     (-21.5333, -64.7333),
 }
 
 # ── App ──────────────────────────────────────────────────────────────────────
@@ -210,21 +252,41 @@ def make_dept_bar(dept_df):
 
 def make_heatmap_party(party, dept_df):
     sub = dept_df[["Departamento", party]].copy()
-    sub["DeptGeo"] = sub["Departamento"].map(DEPT_MAP)
-    fig = px.choropleth(
+    sub["lat"] = sub["Departamento"].map(lambda d: DEPT_COORDS.get(d, (None, None))[0])
+    sub["lon"] = sub["Departamento"].map(lambda d: DEPT_COORDS.get(d, (None, None))[1])
+    sub = sub.dropna(subset=["lat", "lon"])
+    if sub.empty:
+        # Return empty figure if no data
+        fig = go.Figure()
+        fig.update_layout(**_layout(f"Distribución por Departamento — {PARTY_NAMES[party]}"))
+        return fig
+    fig = px.scatter_geo(
         sub,
-        geojson=GEOJSON_URL,
-        locations="DeptGeo",
-        featureidkey="properties.NOMBRE_DEP",
+        lat="lat",
+        lon="lon",
+        size=party,
         color=party,
-        color_continuous_scale=[[0, "#f5f5f5"], [0.5, PARTY_COLORS[party] + "99"], [1, PARTY_COLORS[party]]],
         hover_name="Departamento",
-        hover_data={party: ":,.0f", "DeptGeo": False},
+        hover_data={party: ":,.0f"},
+        color_continuous_scale=px.colors.sequential.Reds if party == "P1" else px.colors.sequential.Blues if party == "P2" else px.colors.sequential.Greens if party == "P3" else px.colors.sequential.Oranges,
         labels={party: "Votos"},
-        fitbounds="locations",
-        basemap_visible=False,
+        size_max=30,
+        projection="mercator",
     )
-    fig.update_layout(**_layout(f"Mapa de calor — {PARTY_NAMES[party]}"))
+    fig.update_geos(
+        scope="south america",
+        projection_type="mercator",
+        showland=True,
+        landcolor="#f0f0f0",
+        showlakes=True,
+        lakecolor="#ffffff",
+        showcountries=True,
+        showcoastlines=True,
+        fitbounds="locations",
+    )
+    layout = _layout(f"Distribución por Departamento — {PARTY_NAMES[party]}")
+    layout["margin"] = dict(l=20, r=20, t=55, b=20)
+    fig.update_layout(**layout)
     return fig
 
 
@@ -316,6 +378,27 @@ def make_comparison_table(total_pg, total_mongo):
     return html.Table([html.Thead(header), html.Tbody(rows)], className="comparison-table")
 
 
+def make_dept_winner_table(dept_df):
+    rows = []
+    for _, r in dept_df.sort_values("VotosValidos", ascending=False).iterrows():
+        winner_code = r.get("GanadorCodigo", None)
+        winner_label = PARTY_NAMES.get(winner_code, "N/A") if winner_code in PARTY_NAMES else r.get("Ganador", "N/A")
+        winner_votes = int(r[winner_code]) if winner_code in PARTY_COLS else 0
+        rows.append(html.Tr([
+            html.Td(r["Departamento"]),
+            html.Td(winner_label, style={"color": PARTY_COLORS.get(winner_code, "#cbd5e1"), "fontWeight": "700"}),
+            html.Td(f"{winner_votes:,}"),
+            html.Td(f"{r['Participacion']:.1f}%"),
+        ]))
+    header = html.Tr([
+        html.Th("Departamento"),
+        html.Th("Ganador"),
+        html.Th("Votos Ganador"),
+        html.Th("Participación"),
+    ])
+    return html.Table([html.Thead(header), html.Tbody(rows)], className="winner-table")
+
+
 def _layout(title):
     return dict(
         title=dict(text=title, x=0.5, xanchor="center", font=dict(size=15, color="#e2e8f0")),
@@ -340,7 +423,7 @@ def kpi(label, value, sub=""):
 
 def serve_layout():
     dept_df, muni_df, total, total_votos = get_processed_data()
-    mongo_dept_df, mongo_muni_df = get_mongo_data()
+    mongo_dept_df, mongo_muni_df, mongo_processed_count = get_mongo_data()
     mongo_dept_df, mongo_total, mongo_total_votos = process_df(mongo_dept_df)
     mongo_muni_df, _, _ = process_df(mongo_muni_df)
     ganador_nac = PARTY_NAMES[dept_df[PARTY_COLS].sum().idxmax()]
@@ -412,6 +495,12 @@ def serve_layout():
                     html.Div(id="muni-table"),
                 ], className="card col-full"),
 
+                # Ganadores por departamento
+                html.Div([
+                    html.H3("🏆 Ganadores por Departamento", className="section-title"),
+                    make_dept_winner_table(dept_df),
+                ], className="card col-full"),
+
             ], className="dashboard-section"),
 
             # MongoDB Dashboard Section
@@ -422,6 +511,7 @@ def serve_layout():
                     kpi("Total Votos Blancos", f"{int(mongo_total['VotosBlancos']):,}"),
                     kpi("Total Votos Nulos", f"{int(mongo_total['VotosNulos']):,}"),
                     kpi("Habilitados", f"{int(mongo_total['VotantesHabilitados']):,}"),
+                    kpi("SMS Procesados", f"{mongo_processed_count:,}", "Desde sms_rrv"),
                     kpi("Ganador Nacional", mongo_ganador_nac),
                 ], className="kpi-row"),
 
@@ -464,6 +554,12 @@ def serve_layout():
                 html.Div([
                     html.H3("📊 Resumen por Municipio", className="section-title"),
                     html.Div(id="mongo-muni-table"),
+                ], className="card col-full"),
+
+                # Ganadores por departamento
+                html.Div([
+                    html.H3("🏆 Ganadores por Departamento", className="section-title"),
+                    make_dept_winner_table(mongo_dept_df),
                 ], className="card col-full"),
 
             ], className="dashboard-section"),
@@ -535,7 +631,7 @@ def update_table(_):
 
 @app.callback(Output("mongo-heatmap-container", "children"), Input("mongo-party-tabs", "value"))
 def update_mongo_heatmap(party):
-    mongo_dept_df, _ = get_mongo_data()
+    mongo_dept_df, _, _ = get_mongo_data()
     mongo_dept_df, _, _ = process_df(mongo_dept_df)
     fig = make_heatmap_party(party, mongo_dept_df)
     return dcc.Graph(figure=fig, config={"displayModeBar": False}, style={"height": "520px"})
@@ -543,7 +639,7 @@ def update_mongo_heatmap(party):
 
 @app.callback(Output("mongo-muni-table", "children"), Input("mongo-party-tabs", "value"))
 def update_mongo_table(_):
-    _, mongo_muni_df = get_mongo_data()
+    _, mongo_muni_df, _ = get_mongo_data()
     mongo_muni_df, _, _ = process_df(mongo_muni_df)
     rows = []
     for _, r in mongo_muni_df.sort_values(["Departamento", "VotosValidos"], ascending=[True, False]).iterrows():
