@@ -1,0 +1,43 @@
+# ─── Node.js ──────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+package-lock.json
+
+# ─── Variables de entorno ────────────────────────────────
+.env
+.env.local
+.env.*.local
+
+# ─── Go ──────────────────────────────────────────────────
+backend/main
+*.exe
+*.test
+
+# ─── Docker ──────────────────────────────────────────────
+.dockerignore
+
+# ─── Frontend (build) ────────────────────────────────────
+frontend/dist/
+frontend/.vite/
+
+# ─── n8n ─────────────────────────────────────────────────
+n8n_data/
+
+# ─── PostgreSQL / Docker volumes ─────────────────────────
+pg_data/
+*.dump
+*.sql.bak
+
+# ─── OS / Editor ─────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ─── Archivos resueltos de merge ─────────────────────────
+*.resolved
