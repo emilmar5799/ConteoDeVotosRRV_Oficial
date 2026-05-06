@@ -17,9 +17,14 @@ type ActaRepository struct {
 	collection *mongo.Collection
 }
 
-// NewActaRepository crea un nuevo repositorio y configura los índices únicos.
+// NewActaRepository crea un nuevo repositorio apuntando a la colección Actas.
 func NewActaRepository(db *mongo.Database) *ActaRepository {
-	coll := db.Collection("actas_rrv")
+	return NewActaRepositoryForCollection(db, "Actas")
+}
+
+// NewActaRepositoryForCollection crea un repositorio apuntando a la colección indicada.
+func NewActaRepositoryForCollection(db *mongo.Database, collectionName string) *ActaRepository {
+	coll := db.Collection(collectionName)
 
 	// Crear índices únicos para idempotencia
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -47,7 +52,7 @@ func NewActaRepository(db *mongo.Database) *ActaRepository {
 
 	_, err := coll.Indexes().CreateMany(ctx, indexes)
 	if err != nil {
-		fmt.Printf("[WARN] Error creando índices de actas_rrv: %v\n", err)
+		fmt.Printf("[WARN] Error creando índices de Actas: %v\n", err)
 	}
 
 	return &ActaRepository{collection: coll}
@@ -186,16 +191,16 @@ func (r *ActaRepository) AggregateVotos(ctx context.Context) (validos, nulos, bl
 
 // ActasPorHora contiene la cantidad de actas recibidas en una hora dada (Query 12).
 type ActasPorHora struct {
-	Hora          int   `json:"hora"            bson:"hora"`
+	Hora           int   `json:"hora"            bson:"hora"`
 	ActasRecibidas int64 `json:"actas_recibidas" bson:"actas_recibidas"`
 }
 
 // TiempoActasDepartamento contiene primera/última acta y tiempo entre ellas (Query 14).
 type TiempoActasDepartamento struct {
-	Departamento    string    `json:"departamento"       bson:"departamento"`
-	PrimeraActa     time.Time `json:"primera_acta"       bson:"primera_acta"`
-	UltimaActa      time.Time `json:"ultima_acta"        bson:"ultima_acta"`
-	TiempoMinutos   float64   `json:"tiempo_promedio_min" bson:"tiempo_promedio_min"`
+	Departamento  string    `json:"departamento"       bson:"departamento"`
+	PrimeraActa   time.Time `json:"primera_acta"       bson:"primera_acta"`
+	UltimaActa    time.Time `json:"ultima_acta"        bson:"ultima_acta"`
+	TiempoMinutos float64   `json:"tiempo_promedio_min" bson:"tiempo_promedio_min"`
 }
 
 // GetActasPorHora retorna las actas agrupadas por hora de recepción (Query 12).

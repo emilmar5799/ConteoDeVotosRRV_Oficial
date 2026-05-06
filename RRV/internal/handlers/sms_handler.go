@@ -352,9 +352,31 @@ func (h *SMSHandler) procesarSMS(ctx context.Context, c *gin.Context, telefono, 
 	// 12. Actualizar vista materializada CQRS (asíncrono)
 	h.cqrsProjector.Proyectar(ctx)
 
-	// 13. Enviar confirmación por Twilio (asíncrono)
-	if h.twilioService != nil && h.twilioService.IsConfigured() && esTwilio {
-		h.twilioService.EnviarConfirmacion(telefono, acta.ActaID, acta.Estado)
+	// 13. Enviar resumen completo del acta por Twilio
+	var twilioErr string
+	var twilioSID, twilioStatus string
+	if h.twilioService != nil && h.twilioService.IsConfigured() {
+		resumen := armarResumenActa(acta)
+		if esTwilio {
+			go func() {
+				if _, err := h.twilioService.EnviarSMS(telefono, resumen); err != nil {
+					log.Printf("[TWILIO] Error enviando resumen a %s: %v", telefono, err)
+				}
+			}()
+		} else {
+			result, err := h.twilioService.EnviarSMS(telefono, resumen)
+			if err != nil {
+				log.Printf("[TWILIO] Error enviando resumen a %s: %v", telefono, err)
+				twilioErr = err.Error()
+			} else if result != nil {
+				twilioSID = result.MessageSID
+				twilioStatus = result.Status
+				log.Printf("[TWILIO] Resumen enviado a %s — SID=%s Status=%s", telefono, twilioSID, twilioStatus)
+			}
+		}
+	} else {
+		log.Println("[TWILIO] No configurado — resumen SMS no enviado")
+		twilioErr = "Twilio no configurado: verifica TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN y TWILIO_PHONE_NUMBER"
 	}
 
 	// 14. Respuesta
@@ -377,10 +399,20 @@ func (h *SMSHandler) procesarSMS(ctx context.Context, c *gin.Context, telefono, 
 			message = fmt.Sprintf("SMS procesado con errores de validación: acta %s guardada", acta.ActaID)
 		}
 
+		respData := gin.H{
+			"acta":          acta,
+			"sms_enviado":   twilioErr == "",
+			"twilio_sid":    twilioSID,
+			"twilio_status": twilioStatus,
+		}
+		if twilioErr != "" {
+			respData["twilio_error"] = twilioErr
+		}
+
 		c.JSON(http.StatusCreated, models.APIResponse{
 			Success: true,
 			Message: message,
-			Data:    acta,
+			Data:    respData,
 			Errors:  erroresValidacion,
 		})
 	}
@@ -476,4 +508,22 @@ func fuente(esTwilio bool) string {
 		return "TWILIO_WEBHOOK"
 	}
 	return "API_JSON"
+}
+
+// armarResumenActa construye el mensaje SMS del acta en una sola línea (<160 chars, 1 segmento).
+func armarResumenActa(acta *models.ActaRRV) string {
+	candidatos := ""
+	for _, c := range acta.Candidatos {
+		candidatos += fmt.Sprintf(" %s:%d", c.CandidatoID, c.Votos)
+	}
+	msg := fmt.Sprintf("RRV:%s|%s/%s|%s|V:%d N:%d B:%d|%s",
+		acta.ActaID, acta.Departamento, acta.Municipio,
+		acta.Estado,
+		acta.VotosValidos, acta.VotosNulos, acta.VotosBlancos,
+		candidatos,
+	)
+	if len(msg) > 160 {
+		msg = msg[:157] + "..."
+	}
+	return msg
 }

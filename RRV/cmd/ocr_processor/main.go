@@ -114,6 +114,18 @@ func main() {
 	// ═══ Conexión a MongoDB ═══
 	fmt.Println("[INIT] Conectando a MongoDB...")
 	cfg := config.LoadConfig()
+
+	// Mostrar a qué MongoDB se está conectando para detectar errores de configuración
+	uriDisplay := cfg.MongoURI
+	if len(uriDisplay) > 50 {
+		uriDisplay = uriDisplay[:50] + "..."
+	}
+	fmt.Printf("[INFO] URI: %s\n", uriDisplay)
+	fmt.Printf("[INFO] Base de datos: %s\n", cfg.MongoDB)
+	if cfg.MongoURI == "mongodb://localhost:27017" {
+		fmt.Println("[WARN] ⚠️  Usando MongoDB LOCAL (localhost). Si quieres Atlas, ejecuta con run_ocr.ps1")
+	}
+
 	mongoClient, err := mongo.Connect(context.Background(), options.Client().ApplyURI(cfg.MongoURI))
 	if err != nil {
 		log.Fatalf("[ERROR] No se pudo conectar a MongoDB: %v", err)
@@ -127,11 +139,14 @@ func main() {
 	defer mongoClient.Disconnect(context.Background())
 	db := mongoClient.Database(cfg.MongoDB)
 
-	actaRepo := repository.NewActaRepository(db)
+	actaValidaRepo := repository.NewActaRepositoryForCollection(db, "Actas")
+	actaAnuladaRepo := repository.NewActaRepositoryForCollection(db, "Actas_Anuladas")
+	actaRepo := repository.NewActaRepository(db) // actas_rrv — usado solo por inconsistenciaService
 	inconsistenciaRepo := repository.NewInconsistenciaRepository(db)
 	referenciaRepo := repository.NewReferenciaRepository(db)
 	inconsistenciaService := service.NewInconsistenciaService(inconsistenciaRepo, referenciaRepo, actaRepo)
 	fmt.Printf("[OK] Conectado a MongoDB: %s\n", cfg.MongoDB)
+	fmt.Println("[OK] Colecciones: válidas→Actas | anuladas→Actas_Anuladas")
 
 	// Buscar todos los PDFs
 	pdfs, err := filepath.Glob(filepath.Join(pdfDir, "*.pdf"))
@@ -280,13 +295,41 @@ func main() {
 			acta.FechaRecepcion = time.Now()
 		}
 
+		// Poblar campo Observaciones para actas OBSERVADAS
+		if acta.Estado == models.EstadoObservada {
+			var obs []string
+			if acta.ValidacionVisual != nil && len(acta.ValidacionVisual.Observaciones) > 0 {
+				obs = append(obs, acta.ValidacionVisual.Observaciones...)
+			}
+			for _, e := range acta.Errores {
+				obs = append(obs, e)
+			}
+			acta.Observaciones = obs
+		}
+
 		// Detectar y registrar inconsistencias en Logs_Inconsistencias
 		incs := inconsistenciaService.DetectarYRegistrar(opCtx, acta, "OCR_PROCESSOR")
 		inconsistenciasGuardadas += len(incs)
 
-		// Guardar acta (skip si ya existe por idempotencia)
-		if saveErr := actaRepo.InsertActa(opCtx, acta); saveErr == nil {
-			actasGuardadas++
+		// Enrutar a la colección correcta según estado
+		if acta.Estado == models.EstadoAnulada {
+			// ANULADA → Actas_Anuladas (no va a Actas)
+			if saveErr := actaAnuladaRepo.InsertActa(opCtx, acta); saveErr != nil {
+				if verbose {
+					fmt.Printf("\n         [WARN] No guardada en Actas_Anuladas: %v\n         ", saveErr)
+				}
+			} else {
+				actasGuardadas++
+			}
+		} else {
+			// PROCESADA, OBSERVADA, ERROR → Actas
+			if saveErr := actaValidaRepo.InsertActa(opCtx, acta); saveErr != nil {
+				if verbose {
+					fmt.Printf("\n         [WARN] No guardada en Actas: %v\n         ", saveErr)
+				}
+			} else {
+				actasGuardadas++
+			}
 		}
 
 		// ═══ PASO 8: Imprimir resultado ═══

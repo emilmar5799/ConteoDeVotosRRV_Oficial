@@ -37,9 +37,10 @@ type ActaRRV struct {
 	Fuente                string                   `json:"fuente"            bson:"fuente"`
 	TipoEntrada           string                   `json:"tipo_entrada"      bson:"tipo_entrada"`
 	HashOrigen            string                   `json:"hash_origen"       bson:"hash_origen"`
-	Errores               []string                 `json:"errores,omitempty" bson:"errores,omitempty"`
+	Errores               []string                 `json:"errores,omitempty"       bson:"errores,omitempty"`
+	Observaciones         []string                 `json:"observaciones,omitempty" bson:"observaciones,omitempty"`
 	ValidacionVisual      *ValidacionVisualResult   `json:"validacion_visual,omitempty" bson:"validacion_visual,omitempty"`
-	FechaRecepcion        time.Time                `json:"fecha_recepcion"   bson:"fecha_recepcion"`
+	FechaRecepcion        time.Time                `json:"fecha_recepcion"         bson:"fecha_recepcion"`
 }
 
 // ValidacionVisualResult contiene el resultado del análisis visual del acta.

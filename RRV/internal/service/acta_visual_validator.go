@@ -162,7 +162,8 @@ func (v *VisualValidator) analizarPDFStream(pdfPath string, resultado *models.Va
 		g, _ := strconv.ParseFloat(m[2], 64)
 		b, _ := strconv.ParseFloat(m[3], 64)
 
-		// ═══ LÁPIZ: gris claro uniforme (R=G=B, valor > 0.4) ═══
+		// Lápiz: gris uniforme en rango de grafito (R≈G≈B, 0.4–0.9).
+		// Los fondos claros del formulario (> 0.9) y el negro puro (< 0.4) quedan excluidos.
 		if r == g && g == b && r > 0.4 && r < 0.9 {
 			tieneGrisLapiz = true
 			grisValor = r
@@ -349,11 +350,13 @@ func (v *VisualValidator) detectarManchas(img image.Image, roi image.Rectangle) 
 			saturacion := maxC - minC
 
 			// Mancha cálida = color saturado, tono café/naranja/grasa
-			manchaCalida := gray < 220 && gray > 60 && saturacion > 30 && r8 > b8
+			manchaCalida := gray < 200 && gray > 80 && saturacion > 45 && r8 > b8+20
 			// Mancha de tinta azul/morada (tampos, bolígrafo reventado)
-			manchaTintaAzul := gray < 180 && saturacion > 30 && b8 > r8+10 && b8 > g8
-			// Mancha oscura general (tinta negra, barro, suciedad extrema)
-			manchaOscura := gray < 80 && saturacion < 30
+			manchaTintaAzul := gray < 160 && saturacion > 45 && b8 > r8+20 && b8 > g8+10
+			// Mancha oscura: solo manchas muy intensas aisladas, NO texto negro normal.
+			// El texto impreso del formulario es negro puro (gray < 30); una mancha
+			// real de suciedad queda en el rango gris oscuro-medio (40-80).
+			manchaOscura := gray >= 40 && gray < 80 && saturacion < 20
 
 			if manchaCalida || manchaTintaAzul || manchaOscura {
 				pixelesMancha++
@@ -362,7 +365,8 @@ func (v *VisualValidator) detectarManchas(img image.Image, roi image.Rectangle) 
 	}
 
 	porcentaje := float64(pixelesMancha) / float64(totalPixeles) * 100
-	return porcentaje > 3.0, porcentaje // Reducido a 3.0% para mayor sensibilidad
+	// Umbral 12%: manchas reales cubren áreas notables, no aparecen en PDFs digitales limpios
+	return porcentaje > 12.0, porcentaje
 }
 
 // detectarManchasBordes detecta manchas oscuras en las esquinas del acta
@@ -393,9 +397,9 @@ func (v *VisualValidator) detectarManchasBordes(img image.Image, bounds image.Re
 				gray := float64(r>>8)*0.299 + float64(g>>8)*0.587 + float64(b>>8)*0.114
 				totalPixeles++
 
-				// Mancha oscura en esquina: gris < 100
-				// (las esquinas del acta normal son blancas/claras)
-				if gray < 100 {
+				// Mancha real en esquina: gris oscuro-medio (35-90).
+				// Negro puro < 30 son líneas de borde del formulario, no manchas.
+				if gray >= 35 && gray < 90 {
 					totalMancha++
 				}
 			}
@@ -407,8 +411,8 @@ func (v *VisualValidator) detectarManchasBordes(img image.Image, bounds image.Re
 	}
 
 	porcentaje := float64(totalMancha) / float64(totalPixeles) * 100
-	// >20% de las esquinas oscuro = manchas/daño de papel
-	return porcentaje > 20, porcentaje
+	// >35% de las esquinas con suciedad real = daño físico de papel
+	return porcentaje > 35, porcentaje
 }
 
 // ═══════════════════════════════════════════════════════════════════

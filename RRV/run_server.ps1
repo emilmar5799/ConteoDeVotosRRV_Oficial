@@ -19,9 +19,9 @@ $env:PIN_VALIDO = "1234"
 $env:TELEFONOS_AUTORIZADOS = "+59170797542,+59162658425,+59170000003"
 
 # ═══ CONFIGURACIÓN TWILIO (opcional — dejar vacío si no se usa) ═══
-$env:TWILIO_ACCOUNT_SID = "AC22220cb30118dcf33c12e870b12c5f67"
-$env:TWILIO_AUTH_TOKEN = "da80df626969ea738e0e0d5bcf57e416"
-$env:TWILIO_PHONE_NUMBER = "+19786482096"
+$env:TWILIO_ACCOUNT_SID = ""
+$env:TWILIO_AUTH_TOKEN = ""
+$env:TWILIO_PHONE_NUMBER = ""
 $env:TWILIO_WEBHOOK_URL = ""  # Pon tu URL de ngrok aquí si usas webhook real
 
 # ═══ MOSTRAR CONFIGURACIÓN ═══
