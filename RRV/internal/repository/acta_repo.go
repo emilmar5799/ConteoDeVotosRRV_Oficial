@@ -17,9 +17,14 @@ type ActaRepository struct {
 	collection *mongo.Collection
 }
 
-// NewActaRepository crea un nuevo repositorio y configura los índices únicos.
+// NewActaRepository crea un nuevo repositorio apuntando a la colección Actas.
 func NewActaRepository(db *mongo.Database) *ActaRepository {
-	coll := db.Collection("actas_rrv")
+	return NewActaRepositoryForCollection(db, "Actas")
+}
+
+// NewActaRepositoryForCollection crea un repositorio apuntando a la colección indicada.
+func NewActaRepositoryForCollection(db *mongo.Database, collectionName string) *ActaRepository {
+	coll := db.Collection(collectionName)
 
 	// Crear índices únicos para idempotencia
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -47,7 +52,7 @@ func NewActaRepository(db *mongo.Database) *ActaRepository {
 
 	_, err := coll.Indexes().CreateMany(ctx, indexes)
 	if err != nil {
-		fmt.Printf("[WARN] Error creando índices de actas_rrv: %v\n", err)
+		fmt.Printf("[WARN] Error creando índices de Actas: %v\n", err)
 	}
 
 	return &ActaRepository{collection: coll}
