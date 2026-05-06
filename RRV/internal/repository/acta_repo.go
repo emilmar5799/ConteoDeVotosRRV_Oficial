@@ -66,6 +66,28 @@ func (r *ActaRepository) InsertActa(ctx context.Context, acta *models.ActaRRV) e
 }
 
 // FindByActaID busca un acta por su ID único.
+// UpdateActaByActaID actualiza un acta existente conservando su _id.
+func (r *ActaRepository) UpdateActaByActaID(ctx context.Context, acta *models.ActaRRV) error {
+	docBytes, err := bson.Marshal(acta)
+	if err != nil {
+		return fmt.Errorf("error serializando acta: %w", err)
+	}
+	var doc bson.M
+	if err := bson.Unmarshal(docBytes, &doc); err != nil {
+		return fmt.Errorf("error preparando acta para update: %w", err)
+	}
+	delete(doc, "_id")
+
+	res, err := r.collection.UpdateOne(ctx, bson.M{"acta_id": acta.ActaID}, bson.M{"$set": doc})
+	if err != nil {
+		return fmt.Errorf("error actualizando acta: %w", err)
+	}
+	if res.MatchedCount == 0 {
+		return fmt.Errorf("acta no encontrada para actualizar: %s", acta.ActaID)
+	}
+	return nil
+}
+
 func (r *ActaRepository) FindByActaID(ctx context.Context, actaID string) (*models.ActaRRV, error) {
 	var acta models.ActaRRV
 	err := r.collection.FindOne(ctx, bson.M{"acta_id": actaID}).Decode(&acta)
@@ -186,16 +208,16 @@ func (r *ActaRepository) AggregateVotos(ctx context.Context) (validos, nulos, bl
 
 // ActasPorHora contiene la cantidad de actas recibidas en una hora dada (Query 12).
 type ActasPorHora struct {
-	Hora          int   `json:"hora"            bson:"hora"`
+	Hora           int   `json:"hora"            bson:"hora"`
 	ActasRecibidas int64 `json:"actas_recibidas" bson:"actas_recibidas"`
 }
 
 // TiempoActasDepartamento contiene primera/última acta y tiempo entre ellas (Query 14).
 type TiempoActasDepartamento struct {
-	Departamento    string    `json:"departamento"       bson:"departamento"`
-	PrimeraActa     time.Time `json:"primera_acta"       bson:"primera_acta"`
-	UltimaActa      time.Time `json:"ultima_acta"        bson:"ultima_acta"`
-	TiempoMinutos   float64   `json:"tiempo_promedio_min" bson:"tiempo_promedio_min"`
+	Departamento  string    `json:"departamento"       bson:"departamento"`
+	PrimeraActa   time.Time `json:"primera_acta"       bson:"primera_acta"`
+	UltimaActa    time.Time `json:"ultima_acta"        bson:"ultima_acta"`
+	TiempoMinutos float64   `json:"tiempo_promedio_min" bson:"tiempo_promedio_min"`
 }
 
 // GetActasPorHora retorna las actas agrupadas por hora de recepción (Query 12).

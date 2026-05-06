@@ -39,23 +39,29 @@ func NewActaParser() *ActaParser {
 			"Tyrion Lannister",
 		},
 
-		// Código de mesa: número largo (13-16 dígitos)
-		reCodigoMesa: regexp.MustCompile(`(?i)C[OÓ0]DIGO\s+DE\s+MESA[:\s]*(\d{10,16})`),
+		// Código de mesa: número largo (13-16 dígitos).
+		// Acepta variantes OCR: "CODIGO", "C0DIGO", "CÓDIGO" (con/sin tilde),
+		// y el valor puede estar en la misma línea o en la siguiente (\s* incluye \n).
+		reCodigoMesa: regexp.MustCompile(`(?i)C[OÓ0]D[lI1]G[OÓ0]\s+DE\s+MESA[:\s]*(\d{10,16})`),
 
-		// Número de mesa: número pequeño después de "NÚMERO DE MESA"
-		reNumeroMesa: regexp.MustCompile(`(?i)N[UÚ]MERO\s+DE\s+MESA[:\s]*(\d{1,3})`),
+		// Número de mesa: número pequeño después de "NÚMERO DE MESA".
+		// Variantes OCR: "NUMERO", "NÚMERO", "N MERO" (espacio por Ú perdida).
+		reNumeroMesa: regexp.MustCompile(`(?i)N[UÚ]?M?E?R[OÓ0]\s+DE\s+MESA[:\s]*(\d{1,3})`),
 
-		// Ubicación
-		reDepartamento: regexp.MustCompile(`(?i)Departamento[:\s]+([A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?:\s*$|\s*Provincia|\s*\d)`),
-		reProvincia:    regexp.MustCompile(`(?i)Provincia[:\s]+([A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?:\s*$|\s*Municipio|\s*\d)`),
-		reMunicipio:    regexp.MustCompile(`(?i)Municipio[:\s]+([A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?:\s*$|\s*Localidad|\s*\d)`),
-		reLocalidad:    regexp.MustCompile(`(?i)Localidad[:\s]+([A-ZÁÉÍÓÚÑa-záéíóúñ\s.]+?)(?:\s*$|\s*Recinto|\s*\d)`),
-		reRecinto:      regexp.MustCompile(`(?i)Recinto[:\s]+([A-ZÁÉÍÓÚÑa-záéíóúñ\s.]+?)(?:\s*$|\s*\d)`),
+		// Ubicación — toleran variantes OCR comunes en letras españolas:
+		//   á/a/4, é/e, í/i/1, ó/o/0, ú/u, ñ/n, rn→m, etc.
+		// También admiten que el valor esté en la siguiente línea
+		// (el label termina en \s+ que incluye \n en Go regexp).
+		reDepartamento: regexp.MustCompile(`(?i)Dep[a4]rt[a4]m[ei]n?t[o0][:\s]+([A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?:\s*(?:Prov|Mun|Rec|Local|\d))`),
+		reProvincia:    regexp.MustCompile(`(?i)Prov[i1]nc[i1][a4][:\s]+([A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?:\s*(?:Mun|Dep|Rec|Local|\d))`),
+		reMunicipio:    regexp.MustCompile(`(?i)Mun[i1]c[i1]p[i1][o0][:\s]+([A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?:\s*(?:Local|Rec|Prov|Dep|\d))`),
+		reLocalidad:    regexp.MustCompile(`(?i)Local[i1]d[a4]d[:\s]+([A-ZÁÉÍÓÚÑa-záéíóúñ\s.]+?)(?:\s*(?:Rec|Mun|Dep|\d))`),
+		reRecinto:      regexp.MustCompile(`(?i)Rec[i1]nt[o0][:\s]+([A-ZÁÉÍÓÚÑa-záéíóúñ\s.]+?)(?:\s*\d|\s*$)`),
 
 		// Votos totales
-		reVotosValidos: regexp.MustCompile(`(?i)VOTOS\s+V[ÁA]LIDOS[:\s]*(\d[\d\s]{0,8}\d)`),
-		reVotosBlancos: regexp.MustCompile(`(?i)VOTOS\s+BLANCOS[:\s]*(\d[\d\s]{0,8}\d)`),
-		reVotosNulos:   regexp.MustCompile(`(?i)VOTOS\s+NULOS[:\s]*(\d[\d\s]{0,8}\d)`),
+		reVotosValidos: regexp.MustCompile(`(?i)VOTOS\s+V[ÁA]L[I1]D[OÓ0]S[:\s]*(\d[\d\s]{0,8}\d)`),
+		reVotosBlancos: regexp.MustCompile(`(?i)VOTOS\s+BLANC[OÓ0]S[:\s]*(\d[\d\s]{0,8}\d)`),
+		reVotosNulos:   regexp.MustCompile(`(?i)VOTOS\s+NUL[OÓ0]S[:\s]*(\d[\d\s]{0,8}\d)`),
 	}
 }
 
@@ -65,16 +71,16 @@ func (p *ActaParser) ParseActaText(text string, fileName string) *models.ActaRRV
 	acta := &models.ActaRRV{
 		FechaRecepcion: time.Now(),
 		Fuente:         models.FuenteRRV,
-		TipoEntrada:    models.TipoPDF,
+		// TipoEntrada se establece en el pipeline según la extensión del archivo
 	}
 
 	var errores []string
 
-	// Detectar acta ANULADA — variantes posibles
+	// Detectar acta ANULADA — solo "ANULAD" (prefijo de "ANULADA"/"ANULADO").
+	// NO usar "NULO" ni "NULA" solos: ambas palabras aparecen en el formulario
+	// impreso como "VOTOS NULOS" y dispararían un falso positivo en cada acta.
 	upperText := strings.ToUpper(text)
-	if strings.Contains(upperText, "ANULAD") ||
-		strings.Contains(upperText, "NULA") ||
-		strings.Contains(upperText, "NULO") {
+	if strings.Contains(upperText, "ANULAD") {
 		acta.Estado = models.EstadoAnulada
 		acta.MotivoEstado = models.MotivoTextoAnulada
 		errores = append(errores, "Acta marcada como ANULADA")
@@ -297,15 +303,34 @@ func (p *ActaParser) parsearTextoEmbebido(text string, acta *models.ActaRRV, err
 // ═══════════════════════════════════════════════════════════════════
 
 func (p *ActaParser) parsearTextoOCR(text string, acta *models.ActaRRV, errores *[]string) {
+	text = limitarTextoAlCuerpoActa(text)
+
 	// ── Campos de ubicación ───────────────────────────────────────
 	acta.CodigoMesa = p.extraerCodigoMesa(text)
 	acta.Mesa = p.extraerNumeroMesa(text)
+
+	// Estrategia primaria: regex (funciona si label y valor están en la misma línea)
 	acta.Departamento = p.extraerCampoUbicacion(text, p.reDepartamento)
 	acta.Provincia = p.extraerCampoUbicacion(text, p.reProvincia)
 	acta.Municipio = p.extraerCampoUbicacion(text, p.reMunicipio)
 	acta.Recinto = p.extraerRecinto(text)
 
-	// Fallback para departamento: buscar nombre conocido en el texto completo
+	// Estrategia secundaria: buscar valor en la línea siguiente al label
+	// (Tesseract en PSM 3 suele separar label y valor en líneas distintas)
+	if acta.Departamento == "" {
+		acta.Departamento = p.extraerCampoSiguienteLinea(text, `(?i)Dep[a4]rt[a4]m`)
+	}
+	if acta.Provincia == "" {
+		acta.Provincia = p.extraerCampoSiguienteLinea(text, `(?i)Prov[i1]nc`)
+	}
+	if acta.Municipio == "" {
+		acta.Municipio = p.extraerCampoSiguienteLinea(text, `(?i)Mun[i1]c[i1]p`)
+	}
+	if acta.Recinto == "" {
+		acta.Recinto = p.extraerCampoSiguienteLinea(text, `(?i)Rec[i1]nt`)
+	}
+
+	// Fallback final para departamento: buscar nombre boliviano conocido en el texto
 	if acta.Departamento == "" {
 		acta.Departamento = extraerDepartamentoDesdeTexto(text)
 	}
@@ -331,26 +356,31 @@ func (p *ActaParser) parsearTextoOCR(text string, acta *models.ActaRRV, errores 
 // parsearPorTriplets extrae votos usando la posición relativa de los tripletes "d d d".
 //
 // Las actas bolivianas tienen los valores numéricos como 3 dígitos separados por espacios:
-//   "0 8 5" = 085 = 85 votos.
+//
+//	"0 8 5" = 085 = 85 votos.
 //
 // Estructura fija de los últimos tripletes:
-//   [-N..-5]: datos administrativos (hora inicio/fin, electores, papeletas)
-//   [-4]:     candidato 1
-//   [-3..pero hay 4 candidatos en el PDF real]
-//   [...] :   candidatos (variable, típicamente 4-6)
-//   [-3]:     votos válidos
-//   [-2]:     votos blancos
-//   [-1]:     votos nulos
+//
+//	[-N..-5]: datos administrativos (hora inicio/fin, electores, papeletas)
+//	[-4]:     candidato 1
+//	[-3..pero hay 4 candidatos en el PDF real]
+//	[...] :   candidatos (variable, típicamente 4-6)
+//	[-3]:     votos válidos
+//	[-2]:     votos blancos
+//	[-1]:     votos nulos
 //
 // Si hay >= 7 tripletes, los últimos 7 siempre son [c1,c2,c3,c4, val,bla,nul].
 func (p *ActaParser) parsearPorTriplets(text string, acta *models.ActaRRV) bool {
 	// Patrón amplio: un dígito (o sustituto) seguido de 1-4 espacios, repetido 3 veces.
-	// Acepta tanto "0 8 5" como "0  8  5" como "085" (sin espacios).
+	// Acepta tanto "0 8 5" como "0  8  5".
 	reTriplete := regexp.MustCompile(
 		`(?:^|[ \t])([0-9OolIBbSsZzGg|])[ \t]{0,4}([0-9OolIBbSsZzGg|])[ \t]{0,4}([0-9OolIBbSsZzGg|])(?:[ \t]|$)`,
 	)
-	// También acepta números de 3 dígitos pegados al final de línea
+	// Número de 3 dígitos al final de línea (para líneas casi-numéricas)
 	reNumFin := regexp.MustCompile(`(?:^|\s)(\d{3})(?:\s*$)`)
+	// Número de 3 dígitos al final de una línea que contiene texto (ej: "Daenerys Targaryen 215")
+	// Solo captura si hay exactamente un grupo de 3+ dígitos al final y la línea no es larga
+	reNumFinTexto := regexp.MustCompile(`\b(\d{3})\s*$`)
 
 	lines := strings.Split(text, "\n")
 	var triplets []int
@@ -368,19 +398,34 @@ func (p *ActaParser) parsearPorTriplets(text string, acta *models.ActaRRV) bool 
 			continue
 		}
 
-		// Intento 2: número de 3 dígitos al final de una línea casi-solo-numérica.
-		// Solo si la línea tiene pocos caracteres alfabéticos (evita capturar códigos de texto).
 		alphaCount := 0
 		for _, ch := range line {
 			if (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') {
 				alphaCount++
 			}
 		}
+
+		// Intento 2: número de 3 dígitos al final de una línea casi-solo-numérica.
 		if alphaCount <= 2 {
 			if m := reNumFin.FindStringSubmatch(line); len(m) == 2 {
 				n, err := strconv.Atoi(m[1])
 				if err == nil && n >= 0 && n <= 999 {
 					triplets = append(triplets, n)
+					continue
+				}
+			}
+		}
+
+		// Intento 3: número de 3 dígitos al final de línea con texto (candidato + votos).
+		// Aplica solo a líneas cortas-medianas (< 60 chars) que terminan en exactamente 3 dígitos
+		// y no son el código de mesa (que tiene 13+ dígitos).
+		// Evita líneas que contienen más de un grupo numérico grande (ej: timestamps, códigos).
+		if alphaCount >= 3 && len(line) <= 60 {
+			if m := reNumFinTexto.FindStringSubmatch(line); len(m) == 2 {
+				n, err := strconv.Atoi(m[1])
+				if err == nil && n >= 0 && n <= 999 {
+					triplets = append(triplets, n)
+					continue
 				}
 			}
 		}
@@ -424,6 +469,58 @@ func (p *ActaParser) parsearPorTriplets(text string, acta *models.ActaRRV) bool 
 // Funciones auxiliares de extracción (para OCR)
 // ═══════════════════════════════════════════════════════════════════
 
+// limitarTextoAlCuerpoActa elimina ruido capturado fuera del acta (tabs del
+// navegador, visor PDF, nombres de archivo y barras del sistema) antes de parsear.
+func limitarTextoAlCuerpoActa(text string) string {
+	lines := strings.Split(text, "\n")
+	start := -1
+
+	for i, line := range lines {
+		norm := normalizarLineaOCR(line)
+		if strings.Contains(norm, "ACTA ELECTORAL") ||
+			strings.Contains(norm, "ESCRUTINIO Y CONTEO") ||
+			strings.Contains(norm, "ELECCION DE AUTORIDADES") ||
+			strings.Contains(norm, "UBICACION DE LA MESA") ||
+			strings.Contains(norm, "CONTEO DE VOTOS") {
+			start = maxIntParser(0, i-1)
+			break
+		}
+	}
+
+	if start < 0 {
+		return text
+	}
+
+	end := len(lines)
+	for i := start; i < len(lines); i++ {
+		norm := normalizarLineaOCR(lines[i])
+		if strings.Contains(norm, "DELEGADOS DE MESA") ||
+			strings.Contains(norm, "FIRMA") ||
+			strings.Contains(norm, "OBSERVACIONES") {
+			end = i + 1
+			break
+		}
+	}
+
+	return strings.Join(lines[start:end], "\n")
+}
+
+func normalizarLineaOCR(s string) string {
+	s = strings.ToUpper(s)
+	replacer := strings.NewReplacer(
+		"Á", "A", "É", "E", "Í", "I", "Ó", "O", "Ú", "U", "Ñ", "N",
+		"Ã", "A", "Ã‰", "E", "Ã", "I", "Ã“", "O", "Ãš", "U", "Ã‘", "N",
+	)
+	return replacer.Replace(s)
+}
+
+func maxIntParser(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
 func (p *ActaParser) extraerCodigoMesa(text string) string {
 	matches := p.reCodigoMesa.FindStringSubmatch(text)
 	if len(matches) > 1 {
@@ -455,6 +552,38 @@ func (p *ActaParser) extraerNumeroMesa(text string) string {
 	matches := p.reNumeroMesa.FindStringSubmatch(text)
 	if len(matches) > 1 {
 		return limpiarNumero(matches[1])
+	}
+	return ""
+}
+
+// extraerCampoSiguienteLinea busca un label (por regex) y captura el texto
+// en la misma línea después de ":" o en la siguiente línea no numérica.
+// Maneja el caso OCR más común en actas de cámara: label y valor en líneas separadas.
+func (p *ActaParser) extraerCampoSiguienteLinea(text, labelPattern string) string {
+	reLbl := regexp.MustCompile(labelPattern)
+	reJustNum := regexp.MustCompile(`^\d[\d\s]*$`)
+	lines := strings.Split(text, "\n")
+	for i, line := range lines {
+		if !reLbl.MatchString(line) {
+			continue
+		}
+		// Puede haber el valor después del ":" en la misma línea
+		if idx := strings.Index(line, ":"); idx >= 0 {
+			after := strings.TrimSpace(line[idx+1:])
+			if len(after) > 2 && !reJustNum.MatchString(after) {
+				return after
+			}
+		}
+		// Buscar en las siguientes 2 líneas (a veces hay una línea vacía intermedia)
+		for j := i + 1; j <= i+2 && j < len(lines); j++ {
+			next := strings.TrimSpace(lines[j])
+			if len(next) > 2 && !reJustNum.MatchString(next) && !reLbl.MatchString(next) {
+				// Excluir líneas que parecen otros labels (contienen mucho texto con mayúscula)
+				if len(next) < 60 {
+					return next
+				}
+			}
+		}
 	}
 	return ""
 }
@@ -550,17 +679,35 @@ func (p *ActaParser) buscarVotosCandidato(lines []string, nombre string) int {
 		return 0
 	}
 	apellido := strings.ToLower(partes[len(partes)-1])
+	reJustNum := regexp.MustCompile(`^\d[\d\s]*$`)
 
-	for _, line := range lines {
+	for i, line := range lines {
 		lineLower := strings.ToLower(line)
 		if !strings.Contains(lineLower, apellido) {
 			if !p.containsFuzzy(lineLower, apellido) {
 				continue
 			}
 		}
+		// Intento 1: el número está al final de la misma línea que el nombre
 		votos := p.extraerUltimoNumero(line)
-		if votos >= 0 {
+		if votos > 0 {
 			return votos
+		}
+		// Intento 2: el número está en la línea siguiente (OCR separa label de valor)
+		// Busca en las 2 líneas siguientes no vacías
+		for j := i + 1; j <= i+3 && j < len(lines); j++ {
+			next := strings.TrimSpace(lines[j])
+			if next == "" {
+				continue
+			}
+			// La siguiente línea debe parecer numérica (pocos alfa)
+			if reJustNum.MatchString(next) || len(next) <= 10 {
+				votos = p.extraerUltimoNumero(next)
+				if votos > 0 {
+					return votos
+				}
+			}
+			break // si la línea tiene texto largo, no es el número de este candidato
 		}
 	}
 	return 0
@@ -636,7 +783,8 @@ func (p *ActaParser) extraerCodigoDeNombreArchivo(fileName string) string {
 
 // charToDigit convierte un string de un carácter a su valor numérico.
 // Maneja variantes de encoding de fuentes en PDFs:
-//   O,o → 0 | l,I → 1 | B → 8 | S → 5 | Z → 2 | G → 6
+//
+//	O,o → 0 | l,I → 1 | B → 8 | S → 5 | Z → 2 | G → 6
 func charToDigit(s string) int {
 	switch s {
 	case "O", "o":

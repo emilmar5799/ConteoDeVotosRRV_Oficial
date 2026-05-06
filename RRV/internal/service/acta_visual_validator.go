@@ -2,9 +2,11 @@ package service
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"image"
+	_ "image/jpeg" // registra el decoder JPEG para image.Decode
 	"image/png"
 	"io"
 	"math"
@@ -563,6 +565,8 @@ type pythonPreprocessResponse struct {
 		FlagRevisionManual    bool     `json:"flag_revision_manual"`
 		Observaciones         []string `json:"observaciones"`
 	} `json:"flags"`
+	CleanImageB64    string         `json:"clean_image_b64"`    // imagen preprocesada lista para OCR
+	CorrectedFields  map[string]string `json:"corrected_fields"` // campos alfanuméricos corregidos
 }
 
 // llamarMicroservicioPython envía la imagen al microservicio Python y fusiona los flags
@@ -634,6 +638,140 @@ func (v *VisualValidator) llamarMicroservicioPython(imgPath string, resultado *m
 			resultado.Observaciones = append(resultado.Observaciones, "[Python] "+o)
 		}
 	}
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// PREPROCESAMIENTO Y VALIDACIÓN DIRECTA DE IMÁGENES (no-PDF)
+// ═══════════════════════════════════════════════════════════════════
+
+// PreprocesarImagenConPython envía la imagen al servicio Python para que aplique
+// deskewing, CLAHE y eliminación de manchas. Retorna la ruta de la imagen limpia
+// (en un archivo temporal — el llamador debe eliminarla con os.Remove) y el resultado
+// de validación visual con los flags del pipeline Python ya aplicados.
+//
+// Si el servicio Python no está disponible, retorna ("", nil, nil) — el pipeline
+// puede continuar con la imagen original.
+func (v *VisualValidator) PreprocesarImagenConPython(imgPath string) (cleanPath string, resultado *models.ValidacionVisualResult, err error) {
+	if v.pythonOCRURL == "" {
+		return "", nil, nil
+	}
+
+	f, err := os.Open(imgPath)
+	if err != nil {
+		return "", nil, err
+	}
+	defer f.Close()
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	part, err := writer.CreateFormFile("file", filepath.Base(imgPath))
+	if err != nil {
+		return "", nil, err
+	}
+	if _, err = io.Copy(part, f); err != nil {
+		return "", nil, err
+	}
+	_ = writer.WriteField("ocr_fields", "{}")
+	writer.Close()
+
+	req, err := http.NewRequest("POST", v.pythonOCRURL+"/preprocess", &body)
+	if err != nil {
+		return "", nil, err
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	resp, err := v.httpClient.Do(req)
+	if err != nil {
+		// Servicio Python no disponible — continuar sin él
+		return "", nil, nil
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", nil, fmt.Errorf("Python service returned %d", resp.StatusCode)
+	}
+
+	var pyResp pythonPreprocessResponse
+	if err = json.NewDecoder(resp.Body).Decode(&pyResp); err != nil {
+		return "", nil, err
+	}
+
+	// Decodificar imagen limpia y guardar en archivo temporal
+	if pyResp.CleanImageB64 != "" {
+		imgBytes, decErr := base64.StdEncoding.DecodeString(pyResp.CleanImageB64)
+		if decErr == nil && len(imgBytes) > 0 {
+			tmpFile, tmpErr := os.CreateTemp("", "clean_acta_*.jpg")
+			if tmpErr == nil {
+				tmpFile.Write(imgBytes)
+				tmpFile.Close()
+				cleanPath = tmpFile.Name()
+			}
+		}
+	}
+
+	// Construir resultado visual desde los flags de Python
+	resultado = &models.ValidacionVisualResult{}
+	f2 := pyResp.Flags
+	resultado.ManchaDetectada = f2.ManchaDetectada
+	resultado.PorcentajeMancha = f2.PorcentajeMancha
+	resultado.NumerosSobreescritos = f2.NumerosSobreescritos
+	resultado.CeldasSobreescritas = f2.CeldasSobreescritas
+	resultado.ConfusionAlfanumerica = f2.ConfusionAlfanumerica
+	resultado.CamposSospechosos = f2.CamposSospechosos
+	resultado.HuellasZonaNumeros = f2.HuellasZonaNumeros
+	resultado.FlagRevisionManual = f2.FlagRevisionManual
+	resultado.PipelinePythonUsado = true
+	resultado.Observaciones = make([]string, len(f2.Observaciones))
+	for i, o := range f2.Observaciones {
+		resultado.Observaciones[i] = "[Python] " + o
+	}
+
+	return cleanPath, resultado, nil
+}
+
+// ValidarImagenDirecta ejecuta análisis visual sobre un archivo de imagen (.jpg/.png).
+// Equivalente a ValidarImagenActa pero sin requerir mutool (no necesita PDF).
+// Nota: el llamador puede pasar la imagen ya preprocesada por Python para mejores resultados.
+func (v *VisualValidator) ValidarImagenDirecta(imgPath string) (*models.ValidacionVisualResult, error) {
+	resultado := &models.ValidacionVisualResult{}
+
+	f, err := os.Open(imgPath)
+	if err != nil {
+		return resultado, err
+	}
+	defer f.Close()
+
+	img, _, err := image.Decode(f)
+	if err != nil {
+		return resultado, fmt.Errorf("no se pudo decodificar imagen: %w", err)
+	}
+
+	bounds := img.Bounds()
+
+	roiDatos := v.roiZonaDatos(bounds)
+	mancha, porcentaje := v.detectarManchas(img, roiDatos)
+	resultado.ManchaDetectada = mancha
+	resultado.PorcentajeMancha = math.Round(porcentaje*10) / 10
+
+	manchaBorde, pctBorde := v.detectarManchasBordes(img, bounds)
+	if manchaBorde && !resultado.ManchaDetectada {
+		resultado.ManchaDetectada = true
+		resultado.PorcentajeMancha = math.Round(pctBorde*10) / 10
+	}
+
+	roiFirmas := v.roiZonaFirmas(bounds)
+	huellas := v.contarHuellas(img, roiFirmas)
+	resultado.HuellasDetectadas = huellas
+	resultado.FirmasSuficientes = huellas >= 3
+
+	resultado.RoturaDetectada = v.detectarRoturas(img, bounds)
+	resultado.ArrugasDetectadas = v.detectarArrugas(img, bounds)
+
+	// Para imágenes de cámara: siempre analizar como image-only (no hay PDF stream)
+	v.analizarImageOnly(img, bounds, resultado)
+
+	v.generarObservaciones(resultado)
+	return resultado, nil
 }
 
 // ═══════════════════════════════════════════════════════════════════

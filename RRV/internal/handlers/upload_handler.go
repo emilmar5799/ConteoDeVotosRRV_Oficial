@@ -29,6 +29,39 @@ type UploadHandler struct {
 	retryCfg              service.RetryConfig
 }
 
+func actaTieneVotos(acta *models.ActaRRV) bool {
+	if acta == nil {
+		return false
+	}
+	if acta.VotosValidos != 0 || acta.VotosBlancos != 0 || acta.VotosNulos != 0 {
+		return true
+	}
+	for _, c := range acta.Candidatos {
+		if c.Votos != 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func actasMismosVotos(a, b *models.ActaRRV) bool {
+	if a == nil || b == nil {
+		return false
+	}
+	if a.VotosValidos != b.VotosValidos || a.VotosBlancos != b.VotosBlancos || a.VotosNulos != b.VotosNulos {
+		return false
+	}
+	if len(a.Candidatos) != len(b.Candidatos) {
+		return false
+	}
+	for i := range a.Candidatos {
+		if a.Candidatos[i].Votos != b.Candidatos[i].Votos {
+			return false
+		}
+	}
+	return true
+}
+
 // NewUploadHandler crea un nuevo handler de subida de archivos.
 func NewUploadHandler(
 	actaRepo *repository.ActaRepository,
@@ -119,18 +152,10 @@ func (h *UploadHandler) HandleUpload(c *gin.Context) {
 	}
 	if existente != nil {
 		// Detectar inconsistencia: duplicado con datos diferentes
-		h.inconsistenciaService.DetectarYRegistrar(ctx, existente, "UPLOAD")
-
 		h.registrarEvento(ctx, existente.ActaID, models.EventoDuplicadoDetectado,
-			fmt.Sprintf("Archivo duplicado detectado: hash=%s, acta_id=%s", fileHash, existente.ActaID),
-			map[string]any{"hash": fileHash, "acta_id_existente": existente.ActaID},
+			fmt.Sprintf("Archivo duplicado detectado y reprocesado para permitir mejorar OCR: hash=%s, acta_id=%s", fileHash, existente.ActaID),
+			map[string]any{"hash": fileHash, "acta_id_existente": existente.ActaID, "motivo": "REPROCESAR_DUPLICADO"},
 		)
-		c.JSON(http.StatusConflict, models.APIResponse{
-			Success: false,
-			Message: fmt.Sprintf("Archivo duplicado: este contenido ya fue procesado como acta %s", existente.ActaID),
-			Data:    existente,
-		})
-		return
 	}
 
 	// 5. Guardar archivo temporalmente
@@ -194,6 +219,29 @@ func (h *UploadHandler) HandleUpload(c *gin.Context) {
 	// 9. Verificar duplicado por acta_id
 	existentePorID, _ := h.actaRepo.FindByActaID(ctx, acta.ActaID)
 	if existentePorID != nil {
+		if actaTieneVotos(acta) && !actasMismosVotos(existentePorID, acta) {
+			if err := h.actaRepo.UpdateActaByActaID(ctx, acta); err != nil {
+				c.JSON(http.StatusInternalServerError, models.APIResponse{
+					Success: false,
+					Message: "Error actualizando acta existente con nueva lectura OCR",
+					Errors:  []string{err.Error()},
+				})
+				return
+			}
+			h.registrarEvento(ctx, acta.ActaID, models.EventoOCRProcesado,
+				"Acta existente actualizada: nueva lectura OCR/PDF local corrigio votos anteriores",
+				map[string]any{"acta_id": acta.ActaID},
+			)
+			h.cqrsProjector.Proyectar(ctx)
+			c.JSON(http.StatusOK, models.APIResponse{
+				Success: true,
+				Message: fmt.Sprintf("Acta %s actualizada con votos corregidos", acta.ActaID),
+				Data:    acta,
+				Errors:  erroresValidacion,
+			})
+			return
+		}
+
 		h.registrarEvento(ctx, acta.ActaID, models.EventoDuplicadoDetectado,
 			fmt.Sprintf("Acta duplicada por ID: acta_id=%s", acta.ActaID),
 			map[string]any{"acta_id": acta.ActaID},

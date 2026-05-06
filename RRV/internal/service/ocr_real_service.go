@@ -107,20 +107,25 @@ func (s *RealOCRService) ProcesarPDF(pdfPath string) (string, error) {
 }
 
 // ProcesarImagen ejecuta OCR sobre una imagen capturada por cámara.
-// Usa dos pasadas de Tesseract con diferentes modos y combina los resultados.
+// Usa tres pasadas de Tesseract con diferentes modos y combina los resultados.
+// Para formularios (actas electorales), PSM 3 (auto) es mejor que PSM 6.
 func (s *RealOCRService) ProcesarImagen(imagePath string) (string, error) {
-	// Pasada 1: PSM 6 — bloque uniforme de texto (mejor para documentos estructurados)
-	text6, err := s.runOCRWithPSM(imagePath, "6")
+	// Pasada 1: PSM 3 — auto (mejor para formularios y documentos de diseño mixto)
+	text3, err := s.runOCRWithPSM(imagePath, "3")
 	if err != nil {
-		// Si PSM 6 falla, intenta con PSM 3 (auto)
+		// Si PSM 3 falla, intenta con PSM 6 (bloque uniforme)
 		return s.RunOCR(imagePath)
 	}
 
-	// Pasada 2: PSM 11 — texto disperso (captura números sueltos en tablas)
+	// Pasada 2: PSM 6 — bloque uniforme (buena para texto continuo y encabezados)
+	text6, _ := s.runOCRWithPSM(imagePath, "6")
+
+	// Pasada 3: PSM 11 — texto disperso (captura números sueltos en tablas)
 	text11, _ := s.runOCRWithPSM(imagePath, "11")
 
-	// Combinar: usar el texto con más contenido como base
-	combined := mergeOCROutputs(text6, text11)
+	// Combinar: PSM 3 como base, enriquecer con digits de PSM 11
+	combined := mergeOCROutputs(text3, text6)
+	combined = mergeOCROutputs(combined, text11)
 	return "--- FUENTE: TESSERACT_OCR ---\n" + combined, nil
 }
 
@@ -160,12 +165,18 @@ func (s *RealOCRService) runOCRWithPSM(imagePath, psm string) (string, error) {
 	return string(textBytes), nil
 }
 
-// mergeOCROutputs combina dos salidas de Tesseract tomando el más rico en contenido.
-// Prioriza el que tiene más dígitos (votos), que es el dato crítico.
+// mergeOCROutputs combina dos salidas de Tesseract.
+// Estrategia: usar 'a' como base, pero si 'b' tiene líneas con más información
+// (más letras para ubicación, o más dígitos para votos), prefiere esas líneas.
+// Esto evita perder campos de ubicación al elegir solo el texto con más dígitos.
 func mergeOCROutputs(a, b string) string {
 	if b == "" {
 		return a
 	}
+	if a == "" {
+		return b
+	}
+
 	countDigits := func(s string) int {
 		n := 0
 		for _, c := range s {
@@ -175,8 +186,28 @@ func mergeOCROutputs(a, b string) string {
 		}
 		return n
 	}
-	// Usar el más largo en caracteres útiles; el b aporta si tiene más dígitos
-	if countDigits(b) > countDigits(a)+20 {
+	countAlpha := func(s string) int {
+		n := 0
+		for _, c := range s {
+			if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') {
+				n++
+			}
+		}
+		return n
+	}
+
+	digA, digB := countDigits(a), countDigits(b)
+	alphaA, alphaB := countAlpha(a), countAlpha(b)
+
+	// Si b tiene significativamente más letras (texto ubicación), usarlo como base
+	if alphaB > alphaA+50 {
+		// Pero solo si también tiene suficientes dígitos
+		if digB >= digA-10 {
+			return b
+		}
+	}
+	// Si b tiene muchos más dígitos y texto similar, preferir b
+	if digB > digA+30 && alphaB >= alphaA-20 {
 		return b
 	}
 	return a
