@@ -12,3 +12,4 @@ node_modules/
 *.exe
 
 *.jpg
+.claude/worktrees/quirky-herschel-e58721/
