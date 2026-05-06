@@ -99,6 +99,66 @@ def process_df(df):
     return df, total, total_votos
 
 
+def parse_numeric_acta_id(acta_id):
+    if acta_id is None:
+        return None
+    if isinstance(acta_id, (int, float)):
+        return int(acta_id)
+    acta_str = str(acta_id).strip()
+    if acta_str.isdigit():
+        return int(acta_str)
+    digits = "".join([c for c in acta_str if c.isdigit()])
+    return int(digits) if digits else None
+
+
+def search_acta_by_codigo(codigo_acta):
+    host = os.environ.get("DB_HOST", "localhost")
+    user = os.environ.get("DB_USER", "postgres")
+    password = os.environ.get("DB_PASSWORD", "adminpassword")
+    dbname = os.environ.get("DB_NAME", "sistema_electoral")
+    port = os.environ.get("DB_PORT", "5432")
+    engine = sqlalchemy.create_engine(f"postgresql://{user}:{password}@{host}:{port}/{dbname}")
+
+    if not codigo_acta:
+        return None
+
+    try:
+        code_int = int(str(codigo_acta).strip())
+    except ValueError:
+        return None
+
+    query = """
+    SELECT
+        dt.departamento AS "Departamento",
+        dt.municipio AS "Municipio",
+        re.recinto_nombre AS "Recinto",
+        m.nro_mesa AS "Mesa",
+        p.codigo_acta AS "CodigoActa",
+        p.votos_validos AS "VotosValidos",
+        p.votos_blancos AS "VotosBlancos",
+        p.votos_nulos AS "VotosNulos",
+        COALESCE(SUM(CASE WHEN d.id_partido = 1 THEN d.cantidad_votos ELSE 0 END), 0) AS "P1",
+        COALESCE(SUM(CASE WHEN d.id_partido = 2 THEN d.cantidad_votos ELSE 0 END), 0) AS "P2",
+        COALESCE(SUM(CASE WHEN d.id_partido = 3 THEN d.cantidad_votos ELSE 0 END), 0) AS "P3",
+        COALESCE(SUM(CASE WHEN d.id_partido = 4 THEN d.cantidad_votos ELSE 0 END), 0) AS "P4"
+    FROM distribucion_territorial dt
+    JOIN recinto_electoral re ON dt.codigo_territorial = re.codigo_territorial
+    JOIN mesas m ON re.codigo_recinto = m.codigo_recinto
+    JOIN papeleta p ON m.codigo_acta = p.codigo_acta
+    LEFT JOIN detalle_votos_partido d ON p.id_papeleta = d.id_papeleta
+    WHERE p.codigo_acta = %s
+    GROUP BY dt.departamento, dt.municipio, re.recinto_nombre, m.nro_mesa, p.codigo_acta, p.votos_validos, p.votos_blancos, p.votos_nulos
+    """
+    try:
+        result_df = pd.read_sql(query, engine, params=[code_int])
+        if result_df.empty:
+            return None
+        return result_df.iloc[0].to_dict()
+    except Exception as e:
+        print(f"Error searching acta: {e}")
+        return None
+
+
 def parse_sms_raw(mensaje_raw):
     if not isinstance(mensaje_raw, str):
         return {}
@@ -114,46 +174,53 @@ def get_mongo_data():
     try:
         client = pymongo.MongoClient("mongodb+srv://luxxogc_db_user:Mongo@cluster0.wftdss1.mongodb.net/?appName=Cluster0")
         db = client["electoral_rrv"]
-        collection = db["sms_rrv"]
+        collection = db["Actas"]
 
-        docs = list(collection.find({"estado": "PROCESADO"}, {"_id": 0, "mensaje_raw": 1}))
+        docs = list(collection.find({"estado": {"$in": ["PROCESADA", "OBSERVADA"]}}, {"_id": 0, "acta_id": 1, "departamento": 1, "municipio": 1, "votos_validos": 1, "votos_blancos": 1, "votos_nulos": 1, "electores_habilitados": 1, "candidatos": 1}))
         processed_count = len(docs)
 
         if not docs:
             mongo_df = pd.DataFrame(columns=["Departamento", "Municipio", "VotantesHabilitados", "VotosValidos", "VotosBlancos", "VotosNulos", "P1", "P2", "P3", "P4"])
             mongo_df.loc[0] = ["Sin Datos", "Sin Datos", 1, 0, 0, 0, 0, 0, 0, 0]
-        else:
-            rows = []
-            for doc in docs:
-                parsed = parse_sms_raw(doc.get("mensaje_raw", ""))
-                departamento = parsed.get("DEP", "Desconocido")
-                municipio = parsed.get("MUN", "Desconocido")
-                votos_validos = int(parsed.get("VAL", 0) or 0)
-                votos_nulos = int(parsed.get("NUL", 0) or 0)
-                votos_blancos = int(parsed.get("BLA", 0) or 0)
-                p1 = int(parsed.get("C1", 0) or 0)
-                p2 = int(parsed.get("C2", 0) or 0)
-                p3 = int(parsed.get("C3", 0) or 0)
-                p4 = int(parsed.get("C4", 0) or 0)
-                votos_habilitados = votos_validos + votos_nulos + votos_blancos
-                rows.append({
-                    "Departamento": departamento,
-                    "Municipio": municipio,
-                    "VotantesHabilitados": votos_habilitados,
-                    "VotosValidos": votos_validos,
-                    "VotosBlancos": votos_blancos,
-                    "VotosNulos": votos_nulos,
-                    "P1": p1,
-                    "P2": p2,
-                    "P3": p3,
-                    "P4": p4,
-                })
-            mongo_df = pd.DataFrame(rows)
-            required_cols = ["Departamento", "Municipio", "VotantesHabilitados", "VotosValidos", "VotosBlancos", "VotosNulos", "P1", "P2", "P3", "P4"]
-            for col in required_cols:
-                if col not in mongo_df.columns:
-                    mongo_df[col] = 0
+            return mongo_df.groupby(["Departamento", "Municipio"], as_index=False).sum(numeric_only=True), mongo_df.groupby("Departamento", as_index=False).sum(numeric_only=True), processed_count
 
+        rows = []
+        for doc in docs:
+            departamento = doc.get("departamento") or "Desconocido"
+            municipio = doc.get("municipio") or "Desconocido"
+            votos_validos = int(doc.get("votos_validos", 0) or 0)
+            votos_nulos = int(doc.get("votos_nulos", 0) or 0)
+            votos_blancos = int(doc.get("votos_blancos", 0) or 0)
+            electores_habilitados = int(doc.get("electores_habilitados", 0) or 0)
+            candidatos = doc.get("candidatos", []) or []
+            p1 = p2 = p3 = p4 = 0
+            for cand in candidatos:
+                cand_id = str(cand.get("candidato_id", "")).upper()
+                votos = int(cand.get("votos", 0) or 0)
+                if cand_id in ("C1", "1"):
+                    p1 = votos
+                elif cand_id in ("C2", "2"):
+                    p2 = votos
+                elif cand_id in ("C3", "3"):
+                    p3 = votos
+                elif cand_id in ("C4", "4"):
+                    p4 = votos
+            if electores_habilitados == 0:
+                electores_habilitados = votos_validos + votos_blancos + votos_nulos
+            rows.append({
+                "Departamento": departamento,
+                "Municipio": municipio,
+                "VotantesHabilitados": electores_habilitados,
+                "VotosValidos": votos_validos,
+                "VotosBlancos": votos_blancos,
+                "VotosNulos": votos_nulos,
+                "P1": p1,
+                "P2": p2,
+                "P3": p3,
+                "P4": p4,
+            })
+
+        mongo_df = pd.DataFrame(rows)
         mongo_muni_df = mongo_df.groupby(["Departamento", "Municipio"], as_index=False).sum(numeric_only=True)
         mongo_dept_df = mongo_muni_df.groupby("Departamento", as_index=False).sum(numeric_only=True)
         return mongo_dept_df, mongo_muni_df, processed_count
@@ -454,6 +521,16 @@ def serve_layout():
                 html.H2("📊 Dashboard PostgreSQL", className="section-title"),
                 kpis,
 
+                # Búsqueda por código de acta
+                html.Div([
+                    html.Div([
+                        html.Label("Buscar por código de acta", className="input-label"),
+                        dcc.Input(id="acta-search-input", type="text", placeholder="Ingrese código de acta", debounce=True,
+                                  style={"width": "100%", "padding": "10px", "borderRadius": "8px", "border": "1px solid #334155", "backgroundColor": "#0f172a", "color": "#cbd5e1"}),
+                        html.Div(id="acta-search-result", className="search-result-card"),
+                    ], className="card col-full"),
+                ], className="row"),
+
                 # Fila 1: Nacional bar + donut
                 html.Div([
                     html.Div(dcc.Graph(figure=make_bar_national(total, total_votos), config={"displayModeBar": False},
@@ -511,7 +588,7 @@ def serve_layout():
                     kpi("Total Votos Blancos", f"{int(mongo_total['VotosBlancos']):,}"),
                     kpi("Total Votos Nulos", f"{int(mongo_total['VotosNulos']):,}"),
                     kpi("Habilitados", f"{int(mongo_total['VotantesHabilitados']):,}"),
-                    kpi("SMS Procesados", f"{mongo_processed_count:,}", "Desde sms_rrv"),
+                    kpi("Actas MongoDB", f"{mongo_processed_count:,}", "Desde Actas"),
                     kpi("Ganador Nacional", mongo_ganador_nac),
                 ], className="kpi-row"),
 
@@ -627,6 +704,31 @@ def update_table(_):
         html.Th("Ganador"),
     ])
     return html.Table([html.Thead(header), html.Tbody(rows)], className="muni-table")
+
+
+@app.callback(Output("acta-search-result", "children"), Input("acta-search-input", "value"))
+def update_acta_search_result(codigo_acta):
+    if not codigo_acta:
+        return html.Div("Ingrese un código de acta para ver los detalles.", style={"padding": "12px", "color": "#94a3b8"})
+
+    result = search_acta_by_codigo(codigo_acta)
+    if not result:
+        return html.Div(f"Acta {codigo_acta} no encontrada o sin datos en PostgreSQL.", style={"padding": "12px", "color": "#f87171"})
+
+    return html.Div([
+        html.H4(f"Acta {result.get('CodigoActa')}", style={"marginBottom": "8px", "color": "#e2e8f0"}),
+        html.Div([html.Span("Departamento: ", className="search-label"), html.Span(result.get("Departamento", "Desconocido"))]),
+        html.Div([html.Span("Municipio: ", className="search-label"), html.Span(result.get("Municipio", "Desconocido"))]),
+        html.Div([html.Span("Recinto: ", className="search-label"), html.Span(result.get("Recinto", "Desconocido"))]),
+        html.Div([html.Span("Mesa: ", className="search-label"), html.Span(result.get("Mesa", "Desconocido"))]),
+        html.Div([html.Span("Votos Válidos: ", className="search-label"), html.Span(f"{int(result.get('VotosValidos', 0)):,}")]),
+        html.Div([html.Span("Blancos: ", className="search-label"), html.Span(f"{int(result.get('VotosBlancos', 0)):,}")]),
+        html.Div([html.Span("Nulos: ", className="search-label"), html.Span(f"{int(result.get('VotosNulos', 0)):,}")]),
+        html.Div([html.Span("P1: ", className="search-label"), html.Span(f"{int(result.get('P1', 0)):,}")]),
+        html.Div([html.Span("P2: ", className="search-label"), html.Span(f"{int(result.get('P2', 0)):,}")]),
+        html.Div([html.Span("P3: ", className="search-label"), html.Span(f"{int(result.get('P3', 0)):,}")]),
+        html.Div([html.Span("P4: ", className="search-label"), html.Span(f"{int(result.get('P4', 0)):,}")]),
+    ], className="search-result-card")
 
 
 @app.callback(Output("mongo-heatmap-container", "children"), Input("mongo-party-tabs", "value"))
