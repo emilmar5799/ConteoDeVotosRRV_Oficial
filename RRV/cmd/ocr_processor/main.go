@@ -103,6 +103,7 @@ func main() {
 			mutoolPath = "mutool"
 		}
 		visualValidator = service.NewVisualValidator(mutoolPath)
+		visualValidator.SetPythonOCRURL("")
 		fmt.Println("[OK] Validador visual inicializado (detección de lápiz, manchas, tinta)")
 	} else {
 		fmt.Println("[INFO] Validación visual desactivada (--skip-visual)")

@@ -85,7 +85,7 @@ const (
 	MotivoTextoAnuladaVisual  = "TEXTO_ANULADA_VISUAL"     // ANULADA detectada por imagen
 	MotivoLapiz               = "USO_DE_LAPIZ"             // Datos escritos a lápiz
 	MotivoCorrector           = "USO_DE_CORRECTOR"         // Liquid paper detectado
-	MotivoTachadura           = "TACHADURA_NUMEROS"        // Números superpuestos
+	MotivoTachadura           = "TACHADURA"        // Números superpuestos
 	MotivoFaltaFirmas         = "FALTA_FIRMAS_HUELLAS"     // < 3 jurados firmaron
 	MotivoRotura              = "ROTURA_CRITICA"           // Falta pedazo de papel
 	MotivoInconsistenciaTotal = "VOTOS_MAYOR_QUE_VOTANTES" // Más votos que personas registradas

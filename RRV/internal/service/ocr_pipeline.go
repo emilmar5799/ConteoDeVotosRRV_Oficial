@@ -17,14 +17,10 @@ type ActaProcessor interface {
 	ProcesarArchivo(filePath, fileName string) (*models.ActaRRV, error)
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// OCRPipeline — pipeline real: Tesseract + mutool + parser + validador
-// ═══════════════════════════════════════════════════════════════════
-
 // OCRPipeline encadena los tres servicios en el orden correcto:
-//  1. RealOCRService  → extrae texto crudo (mutool primario, Tesseract fallback)
-//  2. ActaParser      → convierte texto → ActaRRV estructurada
-//  3. VisualValidator → detecta anomalías visuales (solo PDFs)
+//  1. RealOCRService extrae texto crudo.
+//  2. ActaParser convierte texto a ActaRRV estructurada.
+//  3. VisualValidator detecta anomalias visuales.
 type OCRPipeline struct {
 	realOCR *RealOCRService
 	parser  *ActaParser
@@ -32,7 +28,6 @@ type OCRPipeline struct {
 }
 
 // NewOCRPipeline crea el pipeline real.
-// Retorna error si Tesseract o mutool no están disponibles.
 func NewOCRPipeline(tesseractPath, mutoolPath string) (*OCRPipeline, error) {
 	real, err := NewRealOCRService(tesseractPath, mutoolPath, "spa")
 	if err != nil {
@@ -50,11 +45,12 @@ func (p *OCRPipeline) ProcesarArchivo(filePath, fileName string) (*models.ActaRR
 	ext := strings.ToLower(filepath.Ext(fileName))
 	esPDF := ext == ".pdf"
 
-	// ── Paso 1: extraer texto crudo ──────────────────────────────────
 	var rawText string
 	var err error
 	var pyVisual *models.ValidacionVisualResult
 	voteOCRPath := filePath
+	visualInputPath := filePath
+	referencePDFPath := ""
 
 	if esPDF {
 		rawText, err = p.realOCR.ProcesarPDF(filePath)
@@ -65,15 +61,14 @@ func (p *OCRPipeline) ProcesarArchivo(filePath, fileName string) (*models.ActaRR
 			defer os.Remove(croppedPath)
 			ocrInputPath = croppedPath
 			voteOCRPath = croppedPath
+			visualInputPath = croppedPath
 			if cropped {
 				log.Printf("[OCR-CROP] Imagen recortada al area probable del acta: %s", filepath.Base(croppedPath))
 			}
 		} else if cropErr != nil {
 			log.Printf("[OCR-CROP] No se pudo recortar imagen, se usa original: %v", cropErr)
 		}
-		// Para imágenes de cámara: preprocesar con Python primero.
-		// El preprocesador aplica deskewing, CLAHE y eliminación de manchas,
-		// devuelve una imagen más limpia para Tesseract y los flags de anomalías.
+
 		cleanPath, pyResult, _ := p.visual.PreprocesarImagenConPython(ocrInputPath)
 		pyVisual = pyResult
 
@@ -86,11 +81,9 @@ func (p *OCRPipeline) ProcesarArchivo(filePath, fileName string) (*models.ActaRR
 		rawText, err = p.realOCR.ProcesarImagen(ocrPath)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("extracción de texto falló (%s): %w", ext, err)
+		return nil, fmt.Errorf("extraccion de texto fallo (%s): %w", ext, err)
 	}
 
-	// ── Paso 2: parsear texto → ActaRRV ─────────────────────────────
-	// Log del texto OCR para diagnóstico (primeros 800 chars)
 	logText := rawText
 	if !esPDF {
 		logText = limitarTextoAlCuerpoActa(logText)
@@ -100,11 +93,18 @@ func (p *OCRPipeline) ProcesarArchivo(filePath, fileName string) (*models.ActaRR
 	}
 	log.Printf("[OCR-RAW] Archivo=%s ext=%s\n--- TEXTO OCR INICIO ---\n%s\n--- TEXTO OCR FIN ---", fileName, ext, logText)
 
-	acta := p.parser.ParseActaText(rawText, fileName)
+	parseFileName := fileName
+	if !esPDF {
+		parseFileName = ""
+	}
+	acta := p.parser.ParseActaText(rawText, parseFileName)
 	acta.FechaRecepcion = time.Now()
 
 	if !esPDF {
 		if ok, pdfErr := p.completarDesdePDFPorCodigo(acta); ok {
+			if pdfPath, found := buscarPDFActaPorCodigo(acta.CodigoMesa); found {
+				referencePDFPath = pdfPath
+			}
 			log.Printf("[OCR-PDF-LOOKUP] Acta completada desde pdf local por codigo=%s", acta.CodigoMesa)
 		} else if pdfErr != nil {
 			log.Printf("[OCR-PDF-LOOKUP] No se pudo completar desde pdf local codigo=%s: %v", acta.CodigoMesa, pdfErr)
@@ -130,30 +130,31 @@ func (p *OCRPipeline) ProcesarArchivo(filePath, fileName string) (*models.ActaRR
 		acta.Mesa, acta.CodigoMesa, len(acta.Candidatos), acta.VotosValidos, acta.VotosBlancos, acta.VotosNulos,
 	)
 
-	// Ajustar TipoEntrada según el formato real del archivo
 	if esPDF {
 		acta.TipoEntrada = models.TipoPDF
 	} else {
 		acta.TipoEntrada = models.TipoImagen
 	}
 
-	// ── Paso 3: validación visual ────────────────────────────────────
 	if esPDF {
-		// PDFs: análisis completo con mutool (incluye Python si está disponible)
 		if result, verr := p.visual.ValidarImagenActa(filePath); verr == nil {
 			acta.ValidacionVisual = result
 		}
 	} else {
-		// Imágenes: análisis nativo Go (no requiere mutool)
-		if result, verr := p.visual.ValidarImagenDirecta(filePath); verr == nil {
-			// Fusionar con los flags que ya vienen del preprocesador Python
+		if referencePDFPath != "" {
+			if result, verr := p.visual.ValidarImagenActa(referencePDFPath); verr == nil {
+				acta.ValidacionVisual = result
+			}
+		}
+		if acta.ValidacionVisual == nil {
+			result, verr := p.visual.ValidarImagenDirecta(visualInputPath)
+			if verr != nil {
+				return acta, nil
+			}
 			if pyVisual != nil {
-				fusionarValidacionVisual(result, pyVisual)
+				fusionarValidacionVisualImagen(result, pyVisual)
 			}
 			acta.ValidacionVisual = result
-		} else if pyVisual != nil {
-			// Si el análisis nativo falló pero Python funcionó, usar los flags de Python
-			acta.ValidacionVisual = pyVisual
 		}
 	}
 
@@ -173,7 +174,7 @@ func votosEnCero(acta *models.ActaRRV) bool {
 }
 
 // fusionarValidacionVisual copia los flags del pipeline Python al resultado nativo Go,
-// sin sobreescribir detecciones que Go ya marcó como positivas.
+// sin sobreescribir detecciones que Go ya marco como positivas.
 func fusionarValidacionVisual(destino, pythonResult *models.ValidacionVisualResult) {
 	if pythonResult == nil {
 		return
@@ -196,7 +197,6 @@ func fusionarValidacionVisual(destino, pythonResult *models.ValidacionVisualResu
 	destino.FlagRevisionManual = destino.FlagRevisionManual || pythonResult.FlagRevisionManual
 	destino.PipelinePythonUsado = pythonResult.PipelinePythonUsado
 
-	// Agregar observaciones de Python sin duplicar
 	existentes := make(map[string]bool, len(destino.Observaciones))
 	for _, o := range destino.Observaciones {
 		existentes[o] = true
@@ -208,12 +208,19 @@ func fusionarValidacionVisual(destino, pythonResult *models.ValidacionVisualResu
 	}
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// MockPipeline — wrapper del OCRService mock para compatibilidad
-// ═══════════════════════════════════════════════════════════════════
+// fusionarValidacionVisualImagen conserva la mancha calculada por Go para fotos.
+func fusionarValidacionVisualImagen(destino, pythonResult *models.ValidacionVisualResult) {
+	if pythonResult == nil {
+		return
+	}
+	manchaDetectada := destino.ManchaDetectada
+	porcentajeMancha := destino.PorcentajeMancha
+	fusionarValidacionVisual(destino, pythonResult)
+	destino.ManchaDetectada = manchaDetectada
+	destino.PorcentajeMancha = porcentajeMancha
+}
 
 // MockPipeline adapta el OCRService (mock) a la interfaz ActaProcessor.
-// Se usa cuando Tesseract no está instalado.
 type MockPipeline struct {
 	svc *OCRService
 }
@@ -223,7 +230,6 @@ func NewMockPipeline() *MockPipeline {
 }
 
 func (m *MockPipeline) ProcesarArchivo(filePath, fileName string) (*models.ActaRRV, error) {
-	// El mock usa el nombre de archivo como seed (no necesita leerlo)
 	acta := m.svc.ProcesarArchivo(fileName, fileName)
 	acta.FechaRecepcion = time.Now()
 	return acta, nil

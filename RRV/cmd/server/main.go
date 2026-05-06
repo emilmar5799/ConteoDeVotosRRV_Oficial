@@ -69,6 +69,7 @@ func main() {
 
 	// 3. Inicializar repositorios (crean índices automáticamente)
 	actaRepo := repository.NewActaRepository(db)
+	actaAnuladaRepo := repository.NewActaRepositoryForCollection(db, "Actas_Anuladas")
 	eventoRepo := repository.NewEventoRepository(db)
 	smsRepo := repository.NewSMSRepository(db)
 	referenciaRepo := repository.NewReferenciaRepository(db)
@@ -128,7 +129,7 @@ func main() {
 	os.MkdirAll(uploadDir, 0755)
 
 	// 6. Inicializar handlers
-	uploadHandler := handlers.NewUploadHandler(actaRepo, eventoRepo, ocrProcessor, actaService, inconsistenciaService, cqrsProjector, uploadDir)
+	uploadHandler := handlers.NewUploadHandler(actaRepo, actaAnuladaRepo, eventoRepo, ocrProcessor, actaService, inconsistenciaService, cqrsProjector, uploadDir)
 	smsHandler := handlers.NewSMSHandler(actaRepo, eventoRepo, smsRepo, smsService, actaService, twilioValidator, twilioService, inconsistenciaService, cqrsProjector)
 	queryHandler := handlers.NewQueryHandler(actaRepo, eventoRepo, smsRepo, inconsistenciaRepo, estadisticaRepo, referenciaRepo)
 	log.Println("[OK] Handlers HTTP inicializados")
@@ -154,9 +155,9 @@ func main() {
 	{
 		// POST - Ingesta de datos (COMMAND en CQRS)
 		api.POST("/actas/upload", uploadHandler.HandleUpload)
-		api.POST("/sms", smsHandler.HandleSMS)                        // JSON directo (testing)
-		api.POST("/sms/twilio", smsHandler.HandleTwilioWebhook)       // Webhook real de Twilio
-		api.POST("/sms/enviar", smsHandler.HandleEnviarSMS)           // Enviar SMS manualmente
+		api.POST("/sms", smsHandler.HandleSMS)                  // JSON directo (testing)
+		api.POST("/sms/twilio", smsHandler.HandleTwilioWebhook) // Webhook real de Twilio
+		api.POST("/sms/enviar", smsHandler.HandleEnviarSMS)     // Enviar SMS manualmente
 
 		// GET - Consultas (QUERY en CQRS)
 		api.GET("/actas", queryHandler.HandleListActas)
@@ -166,28 +167,28 @@ func main() {
 		api.GET("/stats", queryHandler.HandleStats)
 
 		// GET - Nuevos endpoints CQRS + Event Sourcing + Referencia
-		api.GET("/stats/full", queryHandler.HandleStatsFull)                     // Vista materializada CQRS
-		api.GET("/inconsistencias", queryHandler.HandleInconsistencias)           // Logs de inconsistencias
-		api.GET("/eventos/replay/:acta_id", queryHandler.HandleEventReplay)      // Event Sourcing replay
-		api.GET("/referencia/totales", queryHandler.HandleReferenciaTotales)      // Datos de referencia CSV
+		api.GET("/stats/full", queryHandler.HandleStatsFull)                 // Vista materializada CQRS
+		api.GET("/inconsistencias", queryHandler.HandleInconsistencias)      // Logs de inconsistencias
+		api.GET("/eventos/replay/:acta_id", queryHandler.HandleEventReplay)  // Event Sourcing replay
+		api.GET("/referencia/totales", queryHandler.HandleReferenciaTotales) // Datos de referencia CSV
 
 		// GET - Banco de consultas para el Dashboard Analítico
 		consultas := api.Group("/consultas")
 		{
-			consultas.GET("/mesas-por-recinto",           queryHandler.HandleMesasPorRecinto)          // Q1
-			consultas.GET("/votos-por-municipio",         queryHandler.HandleVotosPorMunicipio)         // Q2
-			consultas.GET("/votos-por-departamento",      queryHandler.HandleVotosPorDepartamento)      // Q3
-			consultas.GET("/top-recintos",                queryHandler.HandleTopRecintos)               // Q4 ?candidato=P1&limite=5
-			consultas.GET("/nulos-por-departamento",      queryHandler.HandleNulosPorDepartamento)      // Q5
-			consultas.GET("/boletas-anuladas",            queryHandler.HandleBoletasAnuladas)           // Q6
-			consultas.GET("/trep-vs-oficial",             queryHandler.HandleTREPvsOficial)             // Q7-Q8
-			consultas.GET("/mesas-abstencion",            queryHandler.HandleMesasAbstencion)           // Q11 ?umbral=20
-			consultas.GET("/actas-por-hora",              queryHandler.HandleActasPorHora)              // Q12
-			consultas.GET("/tiempo-actas-departamento",   queryHandler.HandleTiempoActas)               // Q14
-			consultas.GET("/participacion-departamento",  queryHandler.HandleParticipacionPorDepartamento) // Q16
-			consultas.GET("/inconsistencias-trep-oficial",queryHandler.HandleActasInconsistentes)       // Q17
-			consultas.GET("/resultados-geograficos",      queryHandler.HandleResultadosGeograficos)     // Q19 ?departamento=X
-			consultas.GET("/errores-comunes",             queryHandler.HandleErroresComunes)            // Q20
+			consultas.GET("/mesas-por-recinto", queryHandler.HandleMesasPorRecinto)                       // Q1
+			consultas.GET("/votos-por-municipio", queryHandler.HandleVotosPorMunicipio)                   // Q2
+			consultas.GET("/votos-por-departamento", queryHandler.HandleVotosPorDepartamento)             // Q3
+			consultas.GET("/top-recintos", queryHandler.HandleTopRecintos)                                // Q4 ?candidato=P1&limite=5
+			consultas.GET("/nulos-por-departamento", queryHandler.HandleNulosPorDepartamento)             // Q5
+			consultas.GET("/boletas-anuladas", queryHandler.HandleBoletasAnuladas)                        // Q6
+			consultas.GET("/trep-vs-oficial", queryHandler.HandleTREPvsOficial)                           // Q7-Q8
+			consultas.GET("/mesas-abstencion", queryHandler.HandleMesasAbstencion)                        // Q11 ?umbral=20
+			consultas.GET("/actas-por-hora", queryHandler.HandleActasPorHora)                             // Q12
+			consultas.GET("/tiempo-actas-departamento", queryHandler.HandleTiempoActas)                   // Q14
+			consultas.GET("/participacion-departamento", queryHandler.HandleParticipacionPorDepartamento) // Q16
+			consultas.GET("/inconsistencias-trep-oficial", queryHandler.HandleActasInconsistentes)        // Q17
+			consultas.GET("/resultados-geograficos", queryHandler.HandleResultadosGeograficos)            // Q19 ?departamento=X
+			consultas.GET("/errores-comunes", queryHandler.HandleErroresComunes)                          // Q20
 		}
 	}
 
@@ -198,19 +199,19 @@ func main() {
 			twilioStatus = "activo"
 		}
 		c.JSON(http.StatusOK, gin.H{
-			"status":              "ok",
-			"service":             "rrv-backend",
-			"twilio":              twilioStatus,
-			"time":                time.Now().Format(time.RFC3339),
+			"status":  "ok",
+			"service": "rrv-backend",
+			"twilio":  twilioStatus,
+			"time":    time.Now().Format(time.RFC3339),
 			"patrones": gin.H{
-				"cqrs":            "Estadisticas_RRV (vista materializada)",
-				"event_sourcing":  "eventos_rrv (replay vía /eventos/replay/:id)",
-				"idempotencia":    "SHA256 + índices únicos + deduplicación",
+				"cqrs":              "Estadisticas_RRV (vista materializada)",
+				"event_sourcing":    "eventos_rrv (replay vía /eventos/replay/:id)",
+				"idempotencia":      "SHA256 + índices únicos + deduplicación",
 				"tolerancia_fallos": "Retry con backoff exponencial (3 intentos)",
 			},
 			"base_datos": gin.H{
-				"motor":      "MongoDB Atlas",
-				"tipo":       "Replica Set (3 nodos)",
+				"motor":        "MongoDB Atlas",
+				"tipo":         "Replica Set (3 nodos)",
 				"consistencia": "Eventual (RRV)",
 			},
 		})

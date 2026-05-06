@@ -66,8 +66,8 @@ func recortarImagenActa(imagePath string) (string, bool, error) {
 		return imagePath, false, nil
 	}
 
-	padX := int(float64(cropW) * 0.025)
-	padY := int(float64(cropH) * 0.025)
+	padX := int(float64(cropW) * 0.06)
+	padY := int(float64(cropH) * 0.06)
 	rect := image.Rect(
 		maxInt(b.Min.X, x0-padX),
 		maxInt(b.Min.Y, y0-padY),

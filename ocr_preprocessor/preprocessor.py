@@ -71,6 +71,57 @@ def count_skeleton_branch_points(skel: np.ndarray) -> int:
 # 1. MANCHAS Y GOTAS DE TINTA
 # ─────────────────────────────────────────────────────────────────────────────
 
+def _detect_color_stains(img: np.ndarray) -> np.ndarray:
+    """
+    Detecta manchas de color sobre el fondo blanco del acta (HSV):
+      - Café/tostado (H 8-28°, S>25, V 100-230): manchas de café o té.
+      - Tinta azul oscura (H 88-132°, S>130, V<130): salpicaduras de bolígrafo,
+        más saturadas y oscuras que el azul claro del formulario impreso.
+        Solo se evalúa en el 63 % izquierdo para no confundir con huellas.
+    """
+    if len(img.shape) < 3 or img.shape[2] < 3:
+        return np.zeros(img.shape[:2], dtype=np.uint8)
+
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    h, s, v = hsv[:, :, 0], hsv[:, :, 1], hsv[:, :, 2]
+
+    coffee   = (h >= 8)  & (h <= 28)  & (s > 25)  & (v > 100) & (v < 230)
+    dark_ink = (h >= 88) & (h <= 132) & (s > 130) & (v < 130)
+    dark_ink[:, int(img.shape[1] * 0.63):] = False  # excluir zona de huellas
+
+    combined = (coffee | dark_ink).astype(np.uint8) * 255
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+    combined = cv2.morphologyEx(combined, cv2.MORPH_OPEN, kernel, iterations=2)
+    return combined
+
+
+def _filter_stain_components(mask: np.ndarray) -> np.ndarray:
+    """Conserva solo blobs compatibles con manchas, no texto ni fondos impresos."""
+    n_labels, labels, stats, _ = cv2.connectedComponentsWithStats(mask, connectivity=8)
+    filtered = np.zeros_like(mask)
+    total_px = mask.size
+    min_area = max(180, int(total_px * 0.0012))
+
+    for lbl in range(1, n_labels):
+        x = stats[lbl, cv2.CC_STAT_LEFT]
+        y = stats[lbl, cv2.CC_STAT_TOP]
+        w = stats[lbl, cv2.CC_STAT_WIDTH]
+        h = stats[lbl, cv2.CC_STAT_HEIGHT]
+        area = stats[lbl, cv2.CC_STAT_AREA]
+        if w <= 0 or h <= 0:
+            continue
+
+        rectangularity = area / float(w * h)
+        too_thin = w < 8 or h < 8
+        too_large = area > total_px * 0.12 or (w > mask.shape[1] * 0.45 and h > mask.shape[0] * 0.25)
+        printed_form = rectangularity > 0.72 and w > mask.shape[1] * 0.20 and h > mask.shape[0] * 0.08
+
+        if area >= min_area and not too_thin and not too_large and not printed_form:
+            filtered[labels == lbl] = 255
+
+    return filtered
+
+
 def isolate_ink_stains(
     img: np.ndarray,
     flags: AnomalyFlags,
@@ -82,22 +133,25 @@ def isolate_ink_stains(
     """
     Separa manchas/gotas de tinta del texto real y las elimina de la imagen.
 
-    Estrategia:
-      - Binariza con Sauvola (tolera iluminación no uniforme de fotos móviles).
-      - Analiza cada componente conectado:
-          * Ratio alto (≈ circular o amorfo): probable mancha.
-          * Área gigante o ínfima: ruido o mancha grande.
-          * Caracteres válidos: aspect ratio entre 0.15 y 7, área en rango.
-      - Pinta las manchas detectadas en blanco sobre la imagen limpia.
+    Etapa 1 — análisis de componentes binarios (Sauvola):
+      - Caracteres válidos: área 40-6000 px, aspect ratio 0.15-7.
+      - Elementos legítimos: centroide en zona de huellas (37 % derecho),
+        componente muy ancho (>55 % del ancho) o forma rectangular (>85 %).
+      - Todo lo demás: mancha binaria.
+    Etapa 2 — detección de color HSV:
+      - Manchas café/tostado y tinta azul oscura fuera de la zona de huellas.
     """
     gray = to_gray(img)
     binary = binarize_sauvola(gray)
+    h_img, w_img = binary.shape
 
-    # Componentes conectados
+    fingerprint_zone_x = int(w_img * 0.63)
+    form_element_w     = int(w_img * 0.55)
+
     n_labels, labels, stats, _ = cv2.connectedComponentsWithStats(binary, connectivity=8)
 
     stain_mask = np.zeros_like(binary)
-    char_mask = np.zeros_like(binary)
+    char_mask  = np.zeros_like(binary)
 
     for lbl in range(1, n_labels):
         x, y, w, h, area = (
@@ -114,24 +168,35 @@ def isolate_ink_stains(
             and min_aspect < aspect < max_aspect
         )
 
+        if not is_char:
+            cx = x + w // 2
+            rectangularity = area / (w * h + 1e-6)
+            if (cx >= fingerprint_zone_x
+                    or w >= form_element_w
+                    or rectangularity > 0.85):
+                char_mask[labels == lbl] = 255
+                continue
+
         if is_char:
             char_mask[labels == lbl] = 255
         else:
             stain_mask[labels == lbl] = 255
 
-    stain_px = int(np.sum(stain_mask > 0))
+    color_stain    = _detect_color_stains(img)
+    combined_stain = _filter_stain_components(cv2.bitwise_or(stain_mask, color_stain))
+
+    stain_px = int(np.sum(combined_stain > 0))
     total_px = binary.size
     flags.porcentaje_mancha = round(stain_px / total_px * 100, 2)
 
-    if flags.porcentaje_mancha > 1.5:
+    if flags.porcentaje_mancha > 1.4:
         flags.mancha_detectada = True
         flags.observaciones.append(
             f"MANCHA: {flags.porcentaje_mancha:.1f}% de la imagen afectada por ruido/tinta"
         )
 
-    # Limpiar: en zonas de mancha, restaurar fondo blanco
     clean = img.copy()
-    stain_dilated = cv2.dilate(stain_mask, disk(3).astype(np.uint8))
+    stain_dilated = cv2.dilate(combined_stain, disk(3).astype(np.uint8))
     clean[stain_dilated > 0] = 255
 
     return clean

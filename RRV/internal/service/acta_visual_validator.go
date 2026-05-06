@@ -36,9 +36,9 @@ import (
 // ═══════════════════════════════════════════════════════════════════
 
 type VisualValidator struct {
-	mutoolPath    string
-	pythonOCRURL  string     // URL del microservicio Python (vacío = deshabilitado)
-	httpClient    *http.Client
+	mutoolPath   string
+	pythonOCRURL string // URL del microservicio Python (vacío = deshabilitado)
+	httpClient   *http.Client
 }
 
 func NewVisualValidator(mutoolPath string) *VisualValidator {
@@ -86,6 +86,10 @@ func (v *VisualValidator) ValidarImagenActa(pdfPath string) (*models.ValidacionV
 
 	bounds := img.Bounds()
 
+	if !resultado.LapizDetectado {
+		v.detectarLapizImagen(img, bounds, resultado)
+	}
+
 	// ═══ Detección de manchas (oscuras + cálidas) ═══
 	roiDatos := v.roiZonaDatos(bounds)
 	mancha, porcentaje := v.detectarManchas(img, roiDatos)
@@ -110,6 +114,7 @@ func (v *VisualValidator) ValidarImagenActa(pdfPath string) (*models.ValidacionV
 
 	// ═══ Detección de actas arrugadas (sombras y varianza de grises) ═══
 	resultado.ArrugasDetectadas = v.detectarArrugas(img, bounds)
+	v.descartarManchaSiEsArruga(resultado)
 
 	// ═══ Para PDFs image-only: detección visual de lápiz, tachaduras, etc. ═══
 	if !esProgramatico {
@@ -253,12 +258,155 @@ func (v *VisualValidator) analizarImageOnly(img image.Image, bounds image.Rectan
 	resultado.TachaduraDetectada = v.detectarTachadurasImagen(img, roiNumeros)
 }
 
+func (v *VisualValidator) detectarLapizImagen(img image.Image, bounds image.Rectangle, resultado *models.ValidacionVisualResult) {
+	roiCandidatos := image.Rect(
+		int(float64(bounds.Max.X)*0.32), int(float64(bounds.Max.Y)*0.29),
+		int(float64(bounds.Max.X)*0.40), int(float64(bounds.Max.Y)*0.47),
+	)
+	ok, promedio := detectarFilaCandidatosLapiz(img, roiCandidatos)
+	if ok {
+		resultado.LapizDetectado = true
+		resultado.IntensidadPromedio = promedio
+		resultado.RatioContraste = 1.0 - promedio/255.0
+	}
+}
+
+func detectarFilaCandidatosLapiz(img image.Image, roi image.Rectangle) (bool, float64) {
+	const rows = 4
+	const cols = 3
+	cellW := (roi.Max.X - roi.Min.X) / cols
+	cellH := (roi.Max.Y - roi.Min.Y) / rows
+	if cellW <= 0 || cellH <= 0 {
+		return false, 0
+	}
+
+	for row := 0; row < rows; row++ {
+		celdasSospechosas := 0
+		var rowGrayPx int
+		var rowGraySum float64
+		for col := 0; col < cols; col++ {
+			x0 := roi.Min.X + col*cellW + maxInt(2, cellW/5)
+			x1 := roi.Min.X + (col+1)*cellW - maxInt(2, cellW/5)
+			y0 := roi.Min.Y + row*cellH + maxInt(2, cellH/5)
+			y1 := roi.Min.Y + (row+1)*cellH - maxInt(2, cellH/5)
+			if x1 <= x0 || y1 <= y0 {
+				continue
+			}
+
+			var grayPx, darkPx int
+			var cellGraySum float64
+			for y := y0; y < y1; y++ {
+				for x := x0; x < x1; x++ {
+					r, g, b, _ := img.At(x, y).RGBA()
+					r8, g8, b8 := float64(r>>8), float64(g>>8), float64(b>>8)
+					gray := r8*0.299 + g8*0.587 + b8*0.114
+					maxC := math.Max(r8, math.Max(g8, b8))
+					minC := math.Min(r8, math.Min(g8, b8))
+					sat := maxC - minC
+
+					esGrafito := gray >= 95 && gray <= 205 && sat <= 24
+					esOscuro := gray < 80
+
+					if esGrafito {
+						grayPx++
+						cellGraySum += gray
+					}
+					if esOscuro {
+						darkPx++
+					}
+				}
+			}
+
+			avg := 0.0
+			if grayPx > 0 {
+				avg = cellGraySum / float64(grayPx)
+			}
+			if grayPx >= 95 && grayPx <= 260 && darkPx <= 60 && avg >= 145 && avg <= 185 {
+				celdasSospechosas++
+				rowGrayPx += grayPx
+				rowGraySum += cellGraySum
+			}
+		}
+		if celdasSospechosas >= 2 && rowGrayPx > 0 {
+			return true, rowGraySum / float64(rowGrayPx)
+		}
+	}
+	return false, 0
+}
+
+func medirTrazosGrafito(mask []bool, w, h int, img image.Image, roi image.Rectangle) (int, float64) {
+	visited := make([]bool, len(mask))
+	dirs := [][2]int{{1, 0}, {-1, 0}, {0, 1}, {0, -1}}
+	var totalArea int
+	var sumaGray float64
+
+	for i := range mask {
+		if !mask[i] || visited[i] {
+			continue
+		}
+
+		queue := []int{i}
+		visited[i] = true
+		area := 0
+		minX, maxX := w, 0
+		minY, maxY := h, 0
+		var compGray float64
+
+		for len(queue) > 0 {
+			idx := queue[0]
+			queue = queue[1:]
+			x := idx % w
+			y := idx / w
+			area++
+			if x < minX {
+				minX = x
+			}
+			if x > maxX {
+				maxX = x
+			}
+			if y < minY {
+				minY = y
+			}
+			if y > maxY {
+				maxY = y
+			}
+
+			r, g, b, _ := img.At(roi.Min.X+x, roi.Min.Y+y).RGBA()
+			compGray += float64(r>>8)*0.299 + float64(g>>8)*0.587 + float64(b>>8)*0.114
+
+			for _, d := range dirs {
+				nx, ny := x+d[0], y+d[1]
+				if nx < 0 || nx >= w || ny < 0 || ny >= h {
+					continue
+				}
+				ni := ny*w + nx
+				if mask[ni] && !visited[ni] {
+					visited[ni] = true
+					queue = append(queue, ni)
+				}
+			}
+		}
+
+		bw := maxX - minX + 1
+		bh := maxY - minY + 1
+		if area >= 6 && area <= 900 && bw >= 2 && bh >= 3 && bw <= w/3 && bh <= h/4 {
+			totalArea += area
+			sumaGray += compGray
+		}
+	}
+
+	if totalArea == 0 {
+		return 0, 0
+	}
+	return totalArea, sumaGray / float64(totalArea)
+}
+
 // detectarTachadurasImagen detecta números superpuestos analizando
 // la densidad de tinta en las celdas numéricas.
 func (v *VisualValidator) detectarTachadurasImagen(img image.Image, roi image.Rectangle) bool {
 	// Dividir la ROI en sub-celdas y buscar celdas con densidad excesiva
 	cellH := (roi.Max.Y - roi.Min.Y) / 8 // ~8 filas de números
-	cellW := (roi.Max.X - roi.Min.X) / 3  // 3 dígitos por fila
+	cellW := (roi.Max.X - roi.Min.X) / 3 // 3 dígitos por fila
 	if cellH == 0 || cellW == 0 {
 		return false
 	}
@@ -311,9 +459,12 @@ func (v *VisualValidator) detectarTachadurasImagen(img image.Image, roi image.Re
 func (v *VisualValidator) roiZonaDatos(bounds image.Rectangle) image.Rectangle {
 	w := bounds.Max.X
 	h := bounds.Max.Y
+	// Cubre candidatos, votos, totales y parte inferior del acta.
+	// Llega hasta y=88% para capturar manchas en la zona baja,
+	// y hasta x=67% para no entrar en la zona de huellas (derecha).
 	return image.Rect(
-		int(float64(w)*0.10), int(float64(h)*0.20),
-		int(float64(w)*0.55), int(float64(h)*0.65),
+		int(float64(w)*0.05), int(float64(h)*0.10),
+		int(float64(w)*0.67), int(float64(h)*0.88),
 	)
 }
 
@@ -336,11 +487,13 @@ func (v *VisualValidator) roiZonaFirmas(bounds image.Rectangle) image.Rectangle 
 // ═══════════════════════════════════════════════════════════════════
 
 func (v *VisualValidator) detectarManchas(img image.Image, roi image.Rectangle) (bool, float64) {
-	var pixelesMancha int
 	totalPixeles := (roi.Max.X - roi.Min.X) * (roi.Max.Y - roi.Min.Y)
 	if totalPixeles == 0 {
 		return false, 0
 	}
+	roiW := roi.Max.X - roi.Min.X
+	roiH := roi.Max.Y - roi.Min.Y
+	mask := make([]bool, totalPixeles)
 
 	for y := roi.Min.Y; y < roi.Max.Y; y++ {
 		for x := roi.Min.X; x < roi.Max.X; x++ {
@@ -351,61 +504,76 @@ func (v *VisualValidator) detectarManchas(img image.Image, roi image.Rectangle) 
 			minC := math.Min(r8, math.Min(g8, b8))
 			saturacion := maxC - minC
 
-			// Mancha cálida = color saturado, tono café/naranja/grasa
-			manchaCalida := gray < 200 && gray > 80 && saturacion > 45 && r8 > b8+20
-			// Mancha de tinta azul/morada (tampos, bolígrafo reventado)
-			manchaTintaAzul := gray < 160 && saturacion > 45 && b8 > r8+20 && b8 > g8+10
-			// Mancha oscura: solo manchas muy intensas aisladas, NO texto negro normal.
-			// El texto impreso del formulario es negro puro (gray < 30); una mancha
-			// real de suciedad queda en el rango gris oscuro-medio (40-80).
-			manchaOscura := gray >= 40 && gray < 80 && saturacion < 20
+			// Mancha cálida: color café/naranja — nunca aparece en un acta limpia
+			manchaCalida := gray < 225 && gray > 70 && saturacion > 18 && r8 > g8+4 && r8 > b8+10
+			// Mancha oscura difusa: suciedad, café seco, polvo de tinta
+			// (excluye texto negro puro < 40 y fondos claros del formulario > 100)
+			manchaOscura := gray >= 35 && gray < 125 && saturacion < 25
+			// NO incluir manchaTintaAzul aquí: el formulario tiene fondos de celda
+			// azules que darían falsos positivos masivos en esta zona.
+			// La tinta azul derramada se detecta en detectarManchasBordes.
 
-			if manchaCalida || manchaTintaAzul || manchaOscura {
-				pixelesMancha++
+			manchaAzulDerramada := gray < 210 && saturacion > 35 && b8 > r8+12 && b8 > g8+4
+
+			if manchaCalida || manchaOscura || manchaAzulDerramada {
+				mask[(y-roi.Min.Y)*roiW+(x-roi.Min.X)] = true
 			}
 		}
 	}
 
+	pixelesMancha := contarPixelesEnManchas(mask, roiW, roiH, totalPixeles)
 	porcentaje := float64(pixelesMancha) / float64(totalPixeles) * 100
-	// Umbral 12%: manchas reales cubren áreas notables, no aparecen en PDFs digitales limpios
-	return porcentaje > 12.0, porcentaje
+	return porcentaje > 1.4, porcentaje
 }
 
-// detectarManchasBordes detecta manchas oscuras en las esquinas del acta
-// (daño por escaneo, marcas negras, papel dañado en bordes).
+// detectarManchasBordes detecta manchas de color en las franjas perimetrales
+// del acta: tinta azul derramada, lavados, manchas de café en bordes.
+// Evalúa franjas de ~10% a lo largo de los bordes izquierdo, inferior y superior,
+// buscando píxeles cálidos (café) o tinta azul oscura fuera del fondo blanco normal.
 func (v *VisualValidator) detectarManchasBordes(img image.Image, bounds image.Rectangle) (bool, float64) {
 	w := bounds.Max.X
 	h := bounds.Max.Y
 
-	// 4 esquinas: cuadros de ~8% del tamaño
-	esquinas := []image.Rectangle{
-		// Superior izquierda
-		image.Rect(0, 0, int(float64(w)*0.12), int(float64(h)*0.12)),
-		// Superior derecha
-		image.Rect(int(float64(w)*0.88), 0, w, int(float64(h)*0.12)),
-		// Inferior izquierda
-		image.Rect(0, int(float64(h)*0.88), int(float64(w)*0.12), h),
-		// Inferior derecha
-		image.Rect(int(float64(w)*0.88), int(float64(h)*0.88), w, h),
+	// Franjas perimetrales (excluimos el 35 % derecho para evitar la zona de huellas)
+	franjas := []image.Rectangle{
+		// Borde izquierdo completo
+		image.Rect(0, int(float64(h)*0.10), int(float64(w)*0.10), int(float64(h)*0.90)),
+		// Borde inferior (sin zona de huellas a la derecha)
+		image.Rect(int(float64(w)*0.05), int(float64(h)*0.85), int(float64(w)*0.70), h),
+		// Borde superior
+		image.Rect(int(float64(w)*0.05), 0, int(float64(w)*0.70), int(float64(h)*0.12)),
+		// Esquina superior derecha: puede tener daño negro sin tocar la zona de huellas.
+		image.Rect(int(float64(w)*0.88), 0, w, int(float64(h)*0.15)),
 	}
 
 	var totalMancha int
 	var totalPixeles int
 
-	for _, esq := range esquinas {
-		for y := esq.Min.Y; y < esq.Max.Y; y++ {
-			for x := esq.Min.X; x < esq.Max.X; x++ {
+	for _, franja := range franjas {
+		fw := franja.Max.X - franja.Min.X
+		fh := franja.Max.Y - franja.Min.Y
+		mask := make([]bool, fw*fh)
+		for y := franja.Min.Y; y < franja.Max.Y; y++ {
+			for x := franja.Min.X; x < franja.Max.X; x++ {
 				r, g, b, _ := img.At(x, y).RGBA()
-				gray := float64(r>>8)*0.299 + float64(g>>8)*0.587 + float64(b>>8)*0.114
+				r8 := float64(r >> 8)
+				g8 := float64(g >> 8)
+				b8 := float64(b >> 8)
+				gray := r8*0.299 + g8*0.587 + b8*0.114
+				maxC := math.Max(r8, math.Max(g8, b8))
+				minC := math.Min(r8, math.Min(g8, b8))
+				sat := maxC - minC
 				totalPixeles++
 
-				// Mancha real en esquina: gris oscuro-medio (35-90).
-				// Negro puro < 30 son líneas de borde del formulario, no manchas.
-				if gray >= 35 && gray < 90 {
-					totalMancha++
+				manchaCalida := gray < 225 && gray > 65 && sat > 18 && r8 > g8+4 && r8 > b8+10
+				manchaTintaAzul := gray < 210 && sat > 35 && b8 > r8+12 && b8 > g8+4
+				manchaOscura := gray < 95 && sat < 40
+				if manchaCalida || manchaTintaAzul || manchaOscura {
+					mask[(y-franja.Min.Y)*fw+(x-franja.Min.X)] = true
 				}
 			}
 		}
+		totalMancha += contarPixelesEnManchasBorde(mask, fw, fh, fw*fh)
 	}
 
 	if totalPixeles == 0 {
@@ -413,8 +581,87 @@ func (v *VisualValidator) detectarManchasBordes(img image.Image, bounds image.Re
 	}
 
 	porcentaje := float64(totalMancha) / float64(totalPixeles) * 100
-	// >35% de las esquinas con suciedad real = daño físico de papel
-	return porcentaje > 35, porcentaje
+	return porcentaje > 2.5, porcentaje
+}
+
+func contarPixelesEnManchas(mask []bool, w, h, totalPixeles int) int {
+	return contarPixelesEnManchasConOpciones(mask, w, h, totalPixeles, false)
+}
+
+func contarPixelesEnManchasBorde(mask []bool, w, h, totalPixeles int) int {
+	return contarPixelesEnManchasConOpciones(mask, w, h, totalPixeles, true)
+}
+
+func contarPixelesEnManchasConOpciones(mask []bool, w, h, totalPixeles int, permitirGrande bool) int {
+	if w <= 0 || h <= 0 || len(mask) == 0 {
+		return 0
+	}
+
+	visited := make([]bool, len(mask))
+	minArea := int(math.Max(180, float64(totalPixeles)*0.0012))
+	var total int
+	dirs := [][2]int{{1, 0}, {-1, 0}, {0, 1}, {0, -1}}
+
+	for i := range mask {
+		if !mask[i] || visited[i] {
+			continue
+		}
+
+		queue := []int{i}
+		visited[i] = true
+		area := 0
+		minX, maxX := w, 0
+		minY, maxY := h, 0
+
+		for len(queue) > 0 {
+			idx := queue[0]
+			queue = queue[1:]
+			x := idx % w
+			y := idx / w
+			area++
+			if x < minX {
+				minX = x
+			}
+			if x > maxX {
+				maxX = x
+			}
+			if y < minY {
+				minY = y
+			}
+			if y > maxY {
+				maxY = y
+			}
+
+			for _, d := range dirs {
+				nx, ny := x+d[0], y+d[1]
+				if nx < 0 || nx >= w || ny < 0 || ny >= h {
+					continue
+				}
+				ni := ny*w + nx
+				if mask[ni] && !visited[ni] {
+					visited[ni] = true
+					queue = append(queue, ni)
+				}
+			}
+		}
+
+		bw := maxX - minX + 1
+		bh := maxY - minY + 1
+		if bw <= 0 || bh <= 0 {
+			continue
+		}
+		rectangularidad := float64(area) / float64(bw*bh)
+		demasiadoFino := bw < 8 || bh < 8
+		demasiadoGrande := !permitirGrande &&
+			(area > int(float64(totalPixeles)*0.12) || (bw > int(float64(w)*0.45) && bh > int(float64(h)*0.25)))
+		formularioImpreso := rectangularidad > 0.72 && bw > w/5 && bh > h/8
+
+		if area >= minArea && !demasiadoFino && !demasiadoGrande && !formularioImpreso {
+			total += area
+		}
+	}
+
+	return total
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -556,6 +803,13 @@ func (v *VisualValidator) contarHuellas(img image.Image, roi image.Rectangle) in
 // INTEGRACIÓN CON MICROSERVICIO PYTHON/OpenCV
 // ═══════════════════════════════════════════════════════════════════
 
+func (v *VisualValidator) descartarManchaSiEsArruga(resultado *models.ValidacionVisualResult) {
+	if resultado.ArrugasDetectadas && resultado.ManchaDetectada && resultado.PorcentajeMancha >= 8.0 {
+		resultado.ManchaDetectada = false
+		resultado.PorcentajeMancha = 0
+	}
+}
+
 // pythonPreprocessResponse modela la respuesta JSON del microservicio.
 type pythonPreprocessResponse struct {
 	Flags struct {
@@ -569,8 +823,8 @@ type pythonPreprocessResponse struct {
 		FlagRevisionManual    bool     `json:"flag_revision_manual"`
 		Observaciones         []string `json:"observaciones"`
 	} `json:"flags"`
-	CleanImageB64    string         `json:"clean_image_b64"`    // imagen preprocesada lista para OCR
-	CorrectedFields  map[string]string `json:"corrected_fields"` // campos alfanuméricos corregidos
+	CleanImageB64   string            `json:"clean_image_b64"`  // imagen preprocesada lista para OCR
+	CorrectedFields map[string]string `json:"corrected_fields"` // campos alfanuméricos corregidos
 }
 
 // llamarMicroservicioPython envía la imagen al microservicio Python y fusiona los flags
@@ -752,6 +1006,8 @@ func (v *VisualValidator) ValidarImagenDirecta(imgPath string) (*models.Validaci
 
 	bounds := img.Bounds()
 
+	v.detectarLapizImagen(img, bounds, resultado)
+
 	roiDatos := v.roiZonaDatos(bounds)
 	mancha, porcentaje := v.detectarManchas(img, roiDatos)
 	resultado.ManchaDetectada = mancha
@@ -770,6 +1026,7 @@ func (v *VisualValidator) ValidarImagenDirecta(imgPath string) (*models.Validaci
 
 	resultado.RoturaDetectada = v.detectarRoturas(img, bounds)
 	resultado.ArrugasDetectadas = v.detectarArrugas(img, bounds)
+	v.descartarManchaSiEsArruga(resultado)
 
 	// Para imágenes de cámara: siempre analizar como image-only (no hay PDF stream)
 	v.analizarImageOnly(img, bounds, resultado)

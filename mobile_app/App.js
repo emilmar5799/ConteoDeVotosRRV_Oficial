@@ -354,16 +354,10 @@ export default function App() {
       const filename = 'acta_' + Date.now() + '.jpg';
       form.append('archivo', { uri, name: filename, type: 'image/jpeg' });
 
-      // Timeout manual de 20 segundos
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 20000);
-
       const res = await fetch(`${BACKEND_URL}/api/rrv/actas/upload`, {
         method: 'POST',
-        body: form,
-        signal: controller.signal
+        body: form
       });
-      clearTimeout(timeoutId);
 
       const json = await res.json();
 
@@ -379,8 +373,6 @@ export default function App() {
       
       const actaObj = json.data;
       
-      // Si el OCR falló pero el backend extrajo el código de mesa del timestamp,
-      // la única forma segura de saber que la imagen es inválida es si no pudo leer ningún voto.
       const noHayVotos = (actaObj.votos_validos === 0 && actaObj.votos_nulos === 0 && actaObj.votos_blancos === 0);
 
       if (noHayVotos) {
@@ -396,10 +388,7 @@ export default function App() {
 
       setActa(actaObj);
     } catch (err) {
-      const isTimeout = err.name === 'AbortError' || err.message.includes('aborted');
-      const msg = isTimeout
-        ? 'El servidor tardó demasiado en responder (Timeout). Es probable que el OCR sea muy pesado o no detecte bien la imagen.'
-        : `No se pudo contactar al servidor.\n\nVerifica que:\n• El backend esté corriendo\n• BACKEND_URL sea tu IP local\n\n${err.message}`;
+      const msg = `No se pudo contactar al servidor.\n\nVerifica que:\n• El backend esté corriendo\n• BACKEND_URL sea tu IP local\n\n${err.message}`;
 
       Alert.alert('Error de conexión', msg, [
         { text: 'Reintentar', onPress: () => { setUploading(false); enviarAlBackend(uri); } },

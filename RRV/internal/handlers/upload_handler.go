@@ -20,6 +20,7 @@ import (
 // UploadHandler maneja la subida de imágenes y PDFs para procesamiento OCR.
 type UploadHandler struct {
 	actaRepo              *repository.ActaRepository
+	actaAnuladaRepo       *repository.ActaRepository
 	eventoRepo            *repository.EventoRepository
 	processor             service.ActaProcessor
 	actaService           *service.ActaService
@@ -62,9 +63,93 @@ func actasMismosVotos(a, b *models.ActaRRV) bool {
 	return true
 }
 
+func actaPersistibleDesdeUpload(acta *models.ActaRRV) bool {
+	if acta == nil {
+		return false
+	}
+	if acta.Estado == models.EstadoError || acta.Estado == "" {
+		return false
+	}
+	if acta.ActaID == "" || acta.CodigoMesa == "" {
+		return false
+	}
+	if len(acta.Candidatos) == 0 || !actaTieneVotos(acta) {
+		return false
+	}
+	return acta.Estado == models.EstadoProcesada ||
+		acta.Estado == models.EstadoObservada ||
+		acta.Estado == models.EstadoAnulada
+}
+
+func poblarObservacionesActa(acta *models.ActaRRV) {
+	if acta == nil || acta.Estado != models.EstadoObservada {
+		return
+	}
+	var obs []string
+	if acta.ValidacionVisual != nil && len(acta.ValidacionVisual.Observaciones) > 0 {
+		obs = append(obs, acta.ValidacionVisual.Observaciones...)
+	}
+	for _, e := range acta.Errores {
+		obs = append(obs, e)
+	}
+	acta.Observaciones = obs
+}
+
+func (h *UploadHandler) repoDestino(acta *models.ActaRRV) *repository.ActaRepository {
+	if acta != nil && acta.Estado == models.EstadoAnulada {
+		return h.actaAnuladaRepo
+	}
+	return h.actaRepo
+}
+
+func (h *UploadHandler) findByHashEnColecciones(ctx context.Context, hash string) (*models.ActaRRV, *repository.ActaRepository, error) {
+	if h.actaRepo != nil {
+		acta, err := h.actaRepo.FindByHash(ctx, hash)
+		if err != nil {
+			return nil, nil, err
+		}
+		if acta != nil {
+			return acta, h.actaRepo, nil
+		}
+	}
+	if h.actaAnuladaRepo != nil {
+		acta, err := h.actaAnuladaRepo.FindByHash(ctx, hash)
+		if err != nil {
+			return nil, nil, err
+		}
+		if acta != nil {
+			return acta, h.actaAnuladaRepo, nil
+		}
+	}
+	return nil, nil, nil
+}
+
+func (h *UploadHandler) findByActaIDEnColecciones(ctx context.Context, actaID string) (*models.ActaRRV, *repository.ActaRepository, error) {
+	if h.actaRepo != nil {
+		acta, err := h.actaRepo.FindByActaID(ctx, actaID)
+		if err != nil {
+			return nil, nil, err
+		}
+		if acta != nil {
+			return acta, h.actaRepo, nil
+		}
+	}
+	if h.actaAnuladaRepo != nil {
+		acta, err := h.actaAnuladaRepo.FindByActaID(ctx, actaID)
+		if err != nil {
+			return nil, nil, err
+		}
+		if acta != nil {
+			return acta, h.actaAnuladaRepo, nil
+		}
+	}
+	return nil, nil, nil
+}
+
 // NewUploadHandler crea un nuevo handler de subida de archivos.
 func NewUploadHandler(
 	actaRepo *repository.ActaRepository,
+	actaAnuladaRepo *repository.ActaRepository,
 	eventoRepo *repository.EventoRepository,
 	processor service.ActaProcessor,
 	actaService *service.ActaService,
@@ -76,6 +161,7 @@ func NewUploadHandler(
 	os.MkdirAll(uploadDir, 0755)
 	return &UploadHandler{
 		actaRepo:              actaRepo,
+		actaAnuladaRepo:       actaAnuladaRepo,
 		eventoRepo:            eventoRepo,
 		processor:             processor,
 		actaService:           actaService,
@@ -139,7 +225,7 @@ func (h *UploadHandler) HandleUpload(c *gin.Context) {
 	var existente *models.ActaRRV
 	err = service.WithRetry(ctx, h.retryCfg, "FindByHash", func() error {
 		var e error
-		existente, e = h.actaRepo.FindByHash(ctx, fileHash)
+		existente, _, e = h.findByHashEnColecciones(ctx, fileHash)
 		return e
 	})
 	if err != nil {
@@ -194,6 +280,7 @@ func (h *UploadHandler) HandleUpload(c *gin.Context) {
 	erroresValidacion := h.actaService.ValidarActa(acta)
 	acta.Estado = h.actaService.DeterminarEstado(acta, erroresValidacion)
 	acta.Errores = erroresValidacion
+	poblarObservacionesActa(acta)
 
 	if len(erroresValidacion) > 0 {
 		h.registrarEvento(ctx, acta.ActaID, models.EventoValidacionError,
@@ -207,20 +294,26 @@ func (h *UploadHandler) HandleUpload(c *gin.Context) {
 		)
 	}
 
-	// 8. Detectar inconsistencias contra datos de referencia (las 4 del documento)
-	inconsistencias := h.inconsistenciaService.DetectarYRegistrar(ctx, acta, "UPLOAD")
-	if len(inconsistencias) > 0 {
-		h.registrarEvento(ctx, acta.ActaID, "INCONSISTENCIAS_DETECTADAS",
-			fmt.Sprintf("%d inconsistencias detectadas y registradas en Logs_Inconsistencias", len(inconsistencias)),
-			map[string]any{"cantidad": len(inconsistencias)},
+	if !actaPersistibleDesdeUpload(acta) {
+		h.registrarEvento(ctx, acta.ActaID, models.EventoValidacionError,
+			"Acta descartada: OCR sin datos confiables para persistir",
+			map[string]any{"estado": acta.Estado, "errores": erroresValidacion},
 		)
+		c.JSON(http.StatusUnprocessableEntity, models.APIResponse{
+			Success: false,
+			Message: "No se guardó el acta porque el OCR no obtuvo datos confiables",
+			Data:    acta,
+			Errors:  erroresValidacion,
+		})
+		return
 	}
 
 	// 9. Verificar duplicado por acta_id
-	existentePorID, _ := h.actaRepo.FindByActaID(ctx, acta.ActaID)
+	existentePorID, repoExistente, _ := h.findByActaIDEnColecciones(ctx, acta.ActaID)
 	if existentePorID != nil {
-		if actaTieneVotos(acta) && !actasMismosVotos(existentePorID, acta) {
-			if err := h.actaRepo.UpdateActaByActaID(ctx, acta); err != nil {
+		repoDestino := h.repoDestino(acta)
+		if repoExistente == repoDestino && actaTieneVotos(acta) && !actasMismosVotos(existentePorID, acta) {
+			if err := repoDestino.UpdateActaByActaID(ctx, acta); err != nil {
 				c.JSON(http.StatusInternalServerError, models.APIResponse{
 					Success: false,
 					Message: "Error actualizando acta existente con nueva lectura OCR",
@@ -254,9 +347,19 @@ func (h *UploadHandler) HandleUpload(c *gin.Context) {
 		return
 	}
 
+	// 8. Detectar inconsistencias contra datos de referencia (las 4 del documento)
+	inconsistencias := h.inconsistenciaService.DetectarYRegistrar(ctx, acta, "UPLOAD")
+	if len(inconsistencias) > 0 {
+		h.registrarEvento(ctx, acta.ActaID, "INCONSISTENCIAS_DETECTADAS",
+			fmt.Sprintf("%d inconsistencias detectadas y registradas en Logs_Inconsistencias", len(inconsistencias)),
+			map[string]any{"cantidad": len(inconsistencias)},
+		)
+	}
+
 	// 10. Guardar acta en MongoDB (con retry para tolerancia a fallos)
+	repoGuardar := h.repoDestino(acta)
 	err = service.WithRetry(ctx, h.retryCfg, "InsertActa", func() error {
-		return h.actaRepo.InsertActa(ctx, acta)
+		return repoGuardar.InsertActa(ctx, acta)
 	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.APIResponse{
@@ -269,7 +372,7 @@ func (h *UploadHandler) HandleUpload(c *gin.Context) {
 
 	h.registrarEvento(ctx, acta.ActaID, models.EventoActaGuardada,
 		fmt.Sprintf("Acta guardada exitosamente: estado=%s", acta.Estado),
-		map[string]any{"estado": acta.Estado},
+		map[string]any{"estado": acta.Estado, "coleccion": map[bool]string{true: "Actas_Anuladas", false: "Actas"}[acta.Estado == models.EstadoAnulada]},
 	)
 
 	// 11. Actualizar vista materializada CQRS (asíncrono)
